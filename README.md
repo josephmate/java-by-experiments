@@ -1,0 +1,38 @@
+Learn about java fundementals by writing experimental programs.
+Each article will cover as small of a concept as possible.
+The article will start with a question, and hide the answer in an expand block.
+
+For each article you should:
+
+1. Try to think about the question and guess it.
+2. Try to write a program that will help you explore the answer. How does it
+   compare with your guess?
+3. Expand the answer block, and compare with your what you learned from your
+   experiment.
+4. Inspect the code included with the article and compare the approach.
+
+
+Topics:
+1. Date and time
+    1. Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease?
+       ever repeat?
+
+Future topics:
+1. Where can you use prepared statements?
+13. What does stacktrace of overrided method look like compared to super class's
+    method.
+1. What happens when you get a deadlock in java?
+2. What happens when you get a deadlock in jdbc?
+3. What line throws NPE when you try to autobox a null?
+6. What happens to your thread when you gracefully kill the java process?
+7. What happens to the runnables in an ExecutorService when you gracefully kill the java process?
+8. What happens when an Runnable in an ExecutorService throws an exception?
+9. What hapepns when a Callable in an Executor Service throws an exception and
+   you call .get() on the future?
+10. Can in inner class use the privates of the holding class?
+11. How do you chain method calls when Non-null, nullable, primitive, and
+    optional?
+12. What happens when you print an error? Does toString() call toString on each
+    element? What about an ArrayList?
+14. How many threads until your JVM crashes? What does it depend on?
+5. Converting bytes to string
