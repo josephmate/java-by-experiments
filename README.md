@@ -22,7 +22,7 @@ Topics:
 
 Future topics:
 
-13. What does stacktrace of overrided method look like compared to super class's
+1. What does stacktrace of overrided method look like compared to super class's
     method.
 1. What happens when you get a deadlock in java?
 2. What happens when you get a deadlock in jdbc?
