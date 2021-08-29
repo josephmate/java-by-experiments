@@ -16,10 +16,16 @@ Success?   Query
 ✖          INSERT INTO ? (sample_str, sample_int) values ('sample_value', 1)
 ✖          INSERT INTO sample_table (?, sample_int) values ('sample_value', 1)
 ✔          INSERT INTO sample_table (sample_str, sample_int) values (?, 1)
+✖          DELETE FROM ?
+✖          DELETE FROM sample_table WHERE ?='sample_value'
+✖          DELETE FROM sample_table WHERE sample_str=?
 ✖          SELECT * FROM ?
+✖          SELECT ? FROM sample_table
+✖          SELECT * FROM sample_table WHERE ?='sample_value'
+✔          SELECT * FROM sample_table WHERE sample_str=?
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time:  1.617 s
-[INFO] Finished at: 2021-08-29T17:47:08-04:00
+[INFO] Total time:  3.528 s
+[INFO] Finished at: 2021-08-29T19:10:58-04:00
 [INFO] ------------------------------------------------------------------------

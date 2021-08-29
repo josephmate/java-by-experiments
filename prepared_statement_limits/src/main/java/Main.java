@@ -1,6 +1,7 @@
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Collections;
 import java.util.Arrays;
@@ -131,10 +132,129 @@ public final class Main {
         "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
         "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
       ),
-      "SELECT * FROM ?",
+      "DELETE FROM ?",
       (pstmt) -> {
         pstmt.setString(1, "sample_table");
         pstmt.executeUpdate();
+      }
+    );
+
+    runExperiment(
+      Arrays.asList(
+        "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
+        "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
+      ),
+      "DELETE FROM sample_table WHERE ?='sample_value'",
+      (pstmt) -> {
+        pstmt.setString(1, "sample_str");
+        pstmt.executeUpdate();
+      },
+      () -> {
+        try (Statement stmt = conn.createStatement()) {
+          try (ResultSet resultSet = stmt.executeQuery("SELECT count(*) FROM sample_table")) {
+            if (!resultSet.next()) {
+              return false;
+            }
+            return resultSet.getInt(0) == 0;
+          }
+        }
+      }
+    );
+
+    runExperiment(
+      Arrays.asList(
+        "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
+        "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
+      ),
+      "DELETE FROM sample_table WHERE sample_str=?",
+      (pstmt) -> {
+        pstmt.setString(1, "sample_value");
+        pstmt.executeUpdate();
+      },
+      () -> {
+        try (Statement stmt = conn.createStatement()) {
+          try (ResultSet resultSet = stmt.executeQuery("SELECT count(*) FROM sample_table")) {
+            if (!resultSet.next()) {
+              return false;
+            }
+            return resultSet.getInt(0) == 0;
+          }
+        }
+      }
+    );
+
+    runExperiment(
+      Arrays.asList(
+        "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
+        "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
+      ),
+      "SELECT * FROM ?",
+      (pstmt) -> {
+        pstmt.setString(1, "sample_table");
+        pstmt.executeQuery();
+      }
+    );
+
+    runExperiment(
+      Arrays.asList(
+        "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
+        "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
+      ),
+      "SELECT ? FROM sample_table",
+      (pstmt) -> {
+        pstmt.setString(1, "sample_str");
+        try (ResultSet resultSet = pstmt.executeQuery()) {
+          if (!resultSet.next()) {
+            throw new IllegalStateException("Was expecting a single row");
+          }
+          if (!"sample_value".equals(resultSet.getString(1))) {
+            throw new IllegalStateException("Was expecting a single row with 1st column equal to sample_value");
+          }
+        }
+      }
+    );
+
+    runExperiment(
+      Arrays.asList(
+        "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
+        "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
+      ),
+      "SELECT * FROM sample_table WHERE ?='sample_value'",
+      (pstmt) -> {
+        pstmt.setString(1, "sample_str");
+        try (ResultSet resultSet = pstmt.executeQuery()) {
+          if (!resultSet.next()) {
+            throw new IllegalStateException("Was expecting a single row");
+          }
+          if (!"sample_value".equals(resultSet.getString(1))) {
+            throw new IllegalStateException("Was expecting a single row with 1st column equal to sample_value");
+          }
+          if (resultSet.getInt(2) != 1) {
+            throw new IllegalStateException("Was expecting a single row with 2nd column equal to 1");
+          }
+        }
+      }
+    );
+
+    runExperiment(
+      Arrays.asList(
+        "CREATE TABLE sample_table (sample_str VARCHAR(256), sample_int INT)",
+        "INSERT INTO sample_table (sample_str, sample_int) values ('sample_value', 1)"
+      ),
+      "SELECT * FROM sample_table WHERE sample_str=?",
+      (pstmt) -> {
+        pstmt.setString(1, "sample_value");
+        try (ResultSet resultSet = pstmt.executeQuery()) {
+          if (!resultSet.next()) {
+            throw new IllegalStateException("Was expecting a single row");
+          }
+          if (!"sample_value".equals(resultSet.getString(1))) {
+            throw new IllegalStateException("Was expecting a single row with 1st column equal to sample_value");
+          }
+          if (resultSet.getInt(2) != 1) {
+            throw new IllegalStateException("Was expecting a single row with 2nd column equal to 1");
+          }
+        }
       }
     );
   }
@@ -145,8 +265,8 @@ public final class Main {
   }
 
   @FunctionalInterface
-  public interface CheckedRunnable<T> {
-     void apply() throws Exception;
+  public interface CheckedProducer<T> {
+     T apply() throws Exception;
   }
 
   private void runExperiment(
@@ -158,6 +278,7 @@ public final class Main {
       Collections.emptyList(),
       preparedSqlString,
       experiment,
+      () -> true,
       Collections.emptyList()
     );
   }
@@ -172,6 +293,7 @@ public final class Main {
       Arrays.asList(preReq),
       preparedSqlString,
       experiment,
+      () -> true,
       Collections.emptyList()
     );
   }
@@ -186,6 +308,7 @@ public final class Main {
       Collections.emptyList(),
       preparedSqlString,
       experiment,
+      () -> true,
       Arrays.asList(customCleanup)
     );
   }
@@ -201,6 +324,7 @@ public final class Main {
       Arrays.asList(preReq),
       preparedSqlString,
       experiment,
+      () -> true,
       Arrays.asList(customCleanup)
     );
   }
@@ -215,6 +339,23 @@ public final class Main {
       preReqs,
       preparedSqlString,
       experiment,
+      () -> true,
+      Collections.emptyList()
+    );
+  }
+
+  private void runExperiment(
+      List<String> preReqs,
+      String preparedSqlString,
+      CheckedConsumer<PreparedStatement> experiment,
+      CheckedProducer<Boolean> verification
+  ) throws Exception {
+    runExperiment(
+      true,
+      preReqs,
+      preparedSqlString,
+      experiment,
+      verification,
       Collections.emptyList()
     );
   }
@@ -224,6 +365,24 @@ public final class Main {
       List<String> preReqs,
       String preparedSqlString,
       CheckedConsumer<PreparedStatement> experiment,
+      List<String> customCleanup
+  ) throws Exception {
+    runExperiment(
+      createSampleDB,
+      preReqs,
+      preparedSqlString,
+      experiment,
+      () -> true,
+      customCleanup
+    );
+  }
+
+  private void runExperiment(
+      boolean createSampleDB,
+      List<String> preReqs,
+      String preparedSqlString,
+      CheckedConsumer<PreparedStatement> experiment,
+      CheckedProducer<Boolean> verification,
       List<String> customCleanup
   ) throws Exception {
     if (createSampleDB) {
@@ -243,7 +402,11 @@ public final class Main {
     
     try (PreparedStatement pstmt = conn.prepareStatement(preparedSqlString)) {
       experiment.apply(pstmt);
-      System.out.print("✔");
+      if (verification.apply()) {
+        System.out.print("✔");
+      } else {
+        System.out.print("✖");
+      }
     } catch (Exception e) {
       System.out.print("✖");
     }
