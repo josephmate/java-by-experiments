@@ -1,0 +1,25 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------< org.java.by.experiments:prepared.statements.limits >---------
+[INFO] Building prepared.statements.limits 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- exec-maven-plugin:3.0.0:java (default-cli) @ prepared.statements.limits ---
+Success?   Query
+✖          CREATE DATABASE ?
+✖          DROP DATABASE ?
+✔          CREATE USER ? IDENTIFIED BY ?
+✔          DROP USER ?
+✖          CREATE TABLE ? (sample_str VARCHAR(256), sample_int INT)
+✖          CREATE TABLE sample_table (? VARCHAR(256), sample_int INT)
+✖          DROP TABLE ?
+✖          INSERT INTO ? (sample_str, sample_int) values ('sample_value', 1)
+✖          INSERT INTO sample_table (?, sample_int) values ('sample_value', 1)
+✔          INSERT INTO sample_table (sample_str, sample_int) values (?, 1)
+✖          SELECT * FROM ?
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.617 s
+[INFO] Finished at: 2021-08-29T17:47:08-04:00
+[INFO] ------------------------------------------------------------------------

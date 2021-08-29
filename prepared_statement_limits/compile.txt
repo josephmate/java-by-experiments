@@ -1,0 +1,34 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------< org.java.by.experiments:prepared.statements.limits >---------
+[INFO] Building prepared.statements.limits 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ prepared.statements.limits ---
+[WARNING] Using platform encoding (UTF-8 actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] skip non existing resourceDirectory /Users/joseph/projects/java-by-experiments/prepared_statement_limits/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.1:compile (default-compile) @ prepared.statements.limits ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ prepared.statements.limits ---
+[WARNING] Using platform encoding (UTF-8 actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] skip non existing resourceDirectory /Users/joseph/projects/java-by-experiments/prepared_statement_limits/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.1:testCompile (default-testCompile) @ prepared.statements.limits ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.12.4:test (default-test) @ prepared.statements.limits ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ prepared.statements.limits ---
+[INFO] 
+[INFO] --- maven-install-plugin:2.4:install (default-install) @ prepared.statements.limits ---
+[INFO] Installing /Users/joseph/projects/java-by-experiments/prepared_statement_limits/target/prepared.statements.limits-1.0-SNAPSHOT.jar to /Users/joseph/.m2/repository/org/java/by/experiments/prepared.statements.limits/1.0-SNAPSHOT/prepared.statements.limits-1.0-SNAPSHOT.jar
+[INFO] Installing /Users/joseph/projects/java-by-experiments/prepared_statement_limits/pom.xml to /Users/joseph/.m2/repository/org/java/by/experiments/prepared.statements.limits/1.0-SNAPSHOT/prepared.statements.limits-1.0-SNAPSHOT.pom
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.926 s
+[INFO] Finished at: 2021-08-29T17:47:06-04:00
+[INFO] ------------------------------------------------------------------------
