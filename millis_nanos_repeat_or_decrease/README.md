@@ -13,7 +13,7 @@ fail if there was ever a repeat.
 <summary>Click to reveal the solution by experiment.</summary>
 My experiment creates 4 threads that run forever. Each thread compares the
 current value to the previous, prints, and stops if a violation is found.
-Only
+
 ```
 long prev = System.currentTimeMillis();
 while (true) {
