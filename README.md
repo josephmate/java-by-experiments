@@ -13,6 +13,7 @@ For each article you should:
 
 
 Topics:
+
 1. Date and time
     1. [Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease? ever repeat?](millis_nanos_repeat_or_decrease/README.md)
 2. JDBC
@@ -20,6 +21,7 @@ Topics:
 
 
 Future topics:
+
 13. What does stacktrace of overrided method look like compared to super class's
     method.
 1. What happens when you get a deadlock in java?
