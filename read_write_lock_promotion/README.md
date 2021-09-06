@@ -32,7 +32,11 @@ Got the read lock
 
 <details>
 <summary>Click to reveal the solution by reading sources online.</summary>
-Read through the [javadoc](https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/locks/ReentrantReadWriteLock.html).
+
+Read through
+<a href="https://docs.oracle.com/javase/7/docs/api/java/util/concurrent/locks/ReentrantReadWriteLock.html">
+the ReentrantReadWriteLock javadoc</a>.
+
 
 > Additionally, a writer can acquire the read lock, but not vice-versa. Among other applications, reentrancy can be useful when write locks are held during calls or callbacks to methods that perform reads under read locks. If a reader tries to acquire the write lock it will never succeed. 
 

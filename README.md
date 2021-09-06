@@ -14,6 +14,8 @@ For each article you should:
 
 Topics:
 
+1. Exceptions
+    1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
 1. Date and time
     1. [Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease? ever repeat?](millis_nanos_repeat_or_decrease/README.md)
 2. JDBC
@@ -23,8 +25,9 @@ Topics:
 
 Future topics:
 
-1. What does stacktrace of overrided method look like compared to super class's
-   method?
+1. How does native memory impact heap? OS memory?
+1. How many threads until your JVM crashes? How much does each thread impact
+   heap? OS memory report? 
 1. What happens when you get a deadlock with synchronized in java?
 1. What happens when you get a deadlock with locks in java? Is it any different
    from synchronized?
@@ -41,5 +44,4 @@ Future topics:
     optional?
 12. What happens when you print an array? Does toString() call toString on each
     element? What about an ArrayList?
-14. How many threads until your JVM crashes? What does it depend on?
 5. Converting bytes to string
