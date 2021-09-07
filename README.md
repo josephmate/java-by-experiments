@@ -14,8 +14,10 @@ For each article you should:
 
 Topics:
 
+1. Performance
+    1. [How does native memory impact heap? OS memory?](stack_trace_super_sub_classes/README.md)
 1. Exceptions
-    1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
+    1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
 1. Date and time
     1. [Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease? ever repeat?](millis_nanos_repeat_or_decrease/README.md)
 2. JDBC
@@ -25,9 +27,8 @@ Topics:
 
 Future topics:
 
-1. How does native memory impact heap? OS memory?
 1. How many threads until your JVM crashes? How much does each thread impact
-   heap? OS memory report? 
+   heap? OS memory report? How can you increase the number of threads?
 1. What happens when you get a deadlock with synchronized in java?
 1. What happens when you get a deadlock with locks in java? Is it any different
    from synchronized?
