@@ -15,7 +15,7 @@ For each article you should:
 Topics:
 
 1. Performance
-    1. [How does native memory impact heap? OS memory?](stack_trace_super_sub_classes/README.md)
+    1. [How does native memory impact heap? OS memory?](native_memory_impact/README.md)
 1. Exceptions
     1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
 1. Date and time
