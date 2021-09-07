@@ -32,6 +32,7 @@ There's not way to directly call the super method.
 
 <details>
 <summary>Click to reveal stack traces from my experiment.</summary>
+
 ```
 java.lang.RuntimeException
         at Main$Super.callsSuper(Main.java:16)
