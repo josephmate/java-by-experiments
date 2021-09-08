@@ -1,3 +1,6 @@
+If you have a question about Java, you can probably Google it and find Stackoverflow question with the answer in a few minutes.
+Or you could spend hours writing an experimental program that also gives you the answer!
+
 Learn about java fundementals by writing experimental programs.
 Each article will cover as small of a concept as possible.
 The article will start with a question, and hide the answer in an expand block.
@@ -15,7 +18,8 @@ For each article you should:
 Topics:
 
 1. Performance
-    1. [How does native memory impact heap? OS memory?](native_memory_impact/README.md)
+    1. [How many threads until your JVM crashes?](native_memory_impact/README.md)
+    1. [How does native memory impact heap? OS memory?](create_threads_until_crash/README.md)
 1. Exceptions
     1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
 1. Date and time
@@ -27,8 +31,7 @@ Topics:
 
 Future topics:
 
-1. How many threads until your JVM crashes? How much does each thread impact
-   heap? OS memory report? How can you increase the number of threads?
+1. 
 1. What happens when you get a deadlock with synchronized in java?
 1. What happens when you get a deadlock with locks in java? Is it any different
    from synchronized?
