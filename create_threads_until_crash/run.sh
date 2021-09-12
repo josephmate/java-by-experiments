@@ -12,5 +12,5 @@ if [ $retVal -ne 0 ]; then
     exit $retVal
 fi
 
-java -Xss$1 -Xmx$2 Main $3
+java -XX:NativeMemoryTracking=summary -Xss$1 -Xmx$2 Main $3
 

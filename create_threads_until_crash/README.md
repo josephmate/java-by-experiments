@@ -15,6 +15,8 @@ I put together a program that creates threads and starts them, printing out the 
 Eventually it will hit some bottleneck and fail.
 I wrapped a bash script around it to let me modify the stack and heap size.
 
+**WARNING:** if you run this script, sometimes your OS will crash because it uses too much memory.
+
 ```
 ./run.sh 1M 10M 10000
 ...
@@ -67,15 +69,50 @@ Still 4000?
 How am I allocating 1 TB of memory?
 My laptop only has 16GB.
 
-What does the JVM report when we're creating this mess?
+Lets allocate less and see what the JVM reports and the OS reports to help
+figure it out.
 ```
-TODO
+./run.sh 256M 10M 1000
+jcmd $java_process_pid VM.native_memory
+...
+-                    Thread (reserved=264777398KB, committed=264777398KB)
+                            (thread #1020)
+                            (stack: reserved=264774656KB, committed=264774656KB)
+                            (malloc=1549KB #6116)
+                            (arena=1192KB #2036)
+...
+-    Native Memory Tracking (reserved=581KB, committed=581KB)
+                            (malloc=98KB #1058)
+                            (tracking overhead=483KB)
+
+jcmd $java_process_pid GC.heap_info
+1035:
+ garbage-first heap   total 10240K, used 2107K [0x00000007ff600000, 0x0000000800000000)
+  region size 1024K, 2 young (2048K), 0 survivors (0K)
+ Metaspace       used 265K, committed 448K, reserved 1056768K
+  class space    used 5K, committed 128K, reserved 1048576K
+
+ps -l -p $java_process_pid
+  UID   PID  PPID        F CPU PRI NI       SZ    RSS WCHAN     S             ADDR TTY           TIME CMD
+  501  1035  1033     4006   0  31  0 270756616  95428 -      S+                  0 ttys001    0:02.26 /usr/bin/java -XX:NativeMemoryTracking=summary -Xss256M -Xmx10M Main 1000
+
 ```
 
-What does the OS report when we're creating this mess?
+The `jcmd` command tell us that the thread stacks have asked the OS for \~250GB of memory!
+The `ps` command The OS has granted \~250GB virtual memory.
+However only 93MB is actually being used (reported as RSS).
+This makes sense since each of the stacks would only be two call stacks deep:
+```java.lang.Exception
+        at Main.lambda$main$0(Main.java:10)
+        at java.base/java.lang.Thread.run(Thread.java:831)
 ```
-TODO
-```
+
+In summary you can create about ~4000 threads before the JVM or your OS crashes.
+This is variable depending on your OS and resources available.
+Increasing or decreasing the stack size doesn't seem to have an impact since it 99% virtual memory.
+We confirmed this by comparing virtual memory to resident set memory.
+It made sense since the entire stack is allocated,
+but only two call stacks were consumed by our program.
 
 </details>
 
