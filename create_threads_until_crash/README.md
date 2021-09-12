@@ -4,9 +4,10 @@ How can you increase the number of threads?
 What does the JVM report?
 What does the OS report?
 
-1. Think about the answer.
-2. Try to write some experimental code to determine the answer and compare with
-   your stack traces.
+1. Think about guess the answer. You will learn more if you guess first then
+   check compared to immediately checking the answer.
+2. Try to write some experimental code
+3. Compare with my experiments
 
 <details>
 <summary>Click to reveal the results of my experiment.</summary>

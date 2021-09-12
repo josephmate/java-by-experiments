@@ -17,22 +17,23 @@ For each article you should:
 
 Topics:
 
+1. Concurrency
+    1. [Can a thread promote their `ReentrantReadWriteLock.readLock()` to a `ReentrantReadWriteLock.writeLock()`?](read_write_lock_promotion/README.md)
+    1. [What happens when you get a deadlock with synchronized in java?](deadlock_synchronized/README.md)
+
+1. Date and time
+    1. [Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease? ever repeat?](millis_nanos_repeat_or_decrease/README.md)
+1. Exceptions
+    1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
+2. JDBC
+    1. [Where can you use '?' in prepared statements?](prepared_statement_limits/README.md)
 1. Performance
     1. [How many threads until your JVM crashes?](native_memory_impact/README.md)
     1. [How does native memory impact heap? OS memory?](create_threads_until_crash/README.md)
-1. Exceptions
-    1. [What does stack trace of the overrided method look like compared to super class's method?](stack_trace_super_sub_classes/README.md)
-1. Date and time
-    1. [Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease? ever repeat?](millis_nanos_repeat_or_decrease/README.md)
-2. JDBC
-    1. [Where can you use '?' in prepared statements?](prepared_statement_limits/README.md)
-3. Concurrency
-    1. [Can a thread promote their `ReentrantReadWriteLock.readLock()` to a `ReentrantReadWriteLock.writeLock()`?](read_write_lock_promotion/README.md)
 
 Future topics:
 
 1. 
-1. What happens when you get a deadlock with synchronized in java?
 1. What happens when you get a deadlock with locks in java? Is it any different
    from synchronized?
 1. Does synchronized use fair locking?
