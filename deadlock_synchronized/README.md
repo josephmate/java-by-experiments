@@ -9,7 +9,7 @@ What happens when you get a deadlock with synchronized in java?
 <summary>Click to reveal the results of my experiment.</summary>
 
 To create a deadlock, we need to create a cycle in the wait for resource graph.
-The easier way to do that is have one thread grab synchronized lock A then B.
+The easiest way to do that is have one thread grab synchronized lock A then B.
 The other thread need to grab B then A.
 
 However, there's a catch!
