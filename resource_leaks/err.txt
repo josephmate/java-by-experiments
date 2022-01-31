@@ -1,0 +1,18 @@
+Option "--directory" is required
+ --dbType VAL                           : Sets type of DB to connect to
+                                          (default: mysql)
+ --directory FILE                       : the directory to list
+ --experiment [Files_lines |            : the type of experiment
+ Files_list | java_sql_Statement |         
+ java_sql_PreparedStatement |              
+ java_sql_Connection | java_sql_ResultS    
+ et]                                       
+ --file FILE                            : the file to open
+ --hostname VAL                         : Sets hostname of the db to connect to
+                                          (default: localhost)
+ --pass VAL                             : The pass to connect to the db with
+                                          (default: root)
+ --port N                               : Sets port of the db to connect to
+                                          (default: 3306)
+ --user VAL                             : The user to connect to the db with
+                                          (default: root)

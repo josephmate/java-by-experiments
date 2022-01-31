@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 public final class Main {
   
   public static void main(String [] args) throws Exception {
-    ScheduledExecutorService executorService = Executors.newScheduledThreadPool(0);
+    ScheduledExecutorService executorService = Executors.newScheduledThreadPool(1);
     executorService.scheduleWithFixedDelay(
         () -> System.out.println("Hello World!"),
         0, // Initial delay

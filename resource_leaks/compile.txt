@@ -1,0 +1,37 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------< org.java.by.experiments:resource.leaks >---------------
+[INFO] Building resource.leaks 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ resource.leaks ---
+[WARNING] Using platform encoding (UTF-8 actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] skip non existing resourceDirectory /Users/joseph/projects/java-by-experiments/resource_leaks/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.1:compile (default-compile) @ resource.leaks ---
+[INFO] Changes detected - recompiling the module!
+[WARNING] File encoding has not been set, using platform encoding UTF-8, i.e. build is platform dependent!
+[INFO] Compiling 1 source file to /Users/joseph/projects/java-by-experiments/resource_leaks/target/classes
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ resource.leaks ---
+[WARNING] Using platform encoding (UTF-8 actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] skip non existing resourceDirectory /Users/joseph/projects/java-by-experiments/resource_leaks/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.1:testCompile (default-testCompile) @ resource.leaks ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.12.4:test (default-test) @ resource.leaks ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ resource.leaks ---
+[INFO] Building jar: /Users/joseph/projects/java-by-experiments/resource_leaks/target/resource.leaks-1.0-SNAPSHOT.jar
+[INFO] 
+[INFO] --- maven-install-plugin:2.4:install (default-install) @ resource.leaks ---
+[INFO] Installing /Users/joseph/projects/java-by-experiments/resource_leaks/target/resource.leaks-1.0-SNAPSHOT.jar to /Users/joseph/.m2/repository/org/java/by/experiments/resource.leaks/1.0-SNAPSHOT/resource.leaks-1.0-SNAPSHOT.jar
+[INFO] Installing /Users/joseph/projects/java-by-experiments/resource_leaks/pom.xml to /Users/joseph/.m2/repository/org/java/by/experiments/resource.leaks/1.0-SNAPSHOT/resource.leaks-1.0-SNAPSHOT.pom
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.366 s
+[INFO] Finished at: 2022-01-30T20:57:46-05:00
+[INFO] ------------------------------------------------------------------------
