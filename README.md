@@ -25,6 +25,7 @@ Topics:
     1. [What happens if you don't close something properly?](resource_leaks/README.md)
     1. [How many threads until your JVM crashes?](native_memory_impact/README.md)
     1. [How does native memory impact heap? OS memory?](create_threads_until_crash/README.md)
+    1. [Does ArrayList have a limit? LinkedList?](large_array/README.md)
 2. Date and time
     1. [Does `System.currentTimeMillis()` or `System.nanoTime()` ever decrease? ever repeat?](millis_nanos_repeat_or_decrease/README.md)
 3. Exceptions
