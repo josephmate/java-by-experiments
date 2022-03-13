@@ -22,6 +22,7 @@ Topics:
     1. [What happens when you get a deadlock with locks in java? Is it any different from synchronized?](deadlock_lock/README.md)
     1. [Can a thread promote their `ReentrantReadWriteLock.readLock()` to a `ReentrantReadWriteLock.writeLock()`?](read_write_lock_promotion/README.md)
 5. Performance
+    1. [What's the max num of connections a server and client can concurrently keep open?](max_connections/README.md)
     1. [What happens if you don't close something properly?](resource_leaks/README.md)
     1. [How many threads until your JVM crashes?](native_memory_impact/README.md)
     1. [How does native memory impact heap? OS memory?](create_threads_until_crash/README.md)
