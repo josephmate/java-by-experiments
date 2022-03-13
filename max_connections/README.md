@@ -57,6 +57,8 @@ What's strange is that after running this, even though the above program
 completed and released all resources, my Mac becomes less responsive and then
 eventually crashes. As a result, I declare this the pratical limit for my Mac.
 
+At this point I lack the skills to keep digging to figure out why my Mac is
+crashing; however, I can try to see if it works better on my Linux machine.
 
 </details>
 
