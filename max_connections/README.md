@@ -13,6 +13,8 @@ The theoretical limit is 1 billion because:
 4. In total is 2^48.
 5. Which is about a billion connects (log(2^32)/log(10)=9.63)!
 
+## Mac
+
 But the practical limit is much lower on my Mac.
 ```
 2.5 GHz Quad-Core Intel Core i7
@@ -60,10 +62,11 @@ eventually crashes. As a result, I declare this the pratical limit for my Mac.
 At this point I lack the skills to keep digging to figure out why my Mac is
 crashing; however, I can try to see if it works better on my Linux machine.
 
+
 </details>
 
 <details>
-<summary>Click to reveal the journey.</summary>
+<summary>Click to reveal the journey on Mac.</summary>
 
 At about 5k my Mac runs out of file descriptors.
 ```
@@ -358,5 +361,185 @@ Shutting down sockets to server
 however, a few moments after it completed the experiment my laptop died again. I
 can safely say that that's the limit for my Mac.
 
+</details>
+
+<details>
+<summary>Click to reveal the journey on Linux.</summary>
+
+```
+AMD FX(tm)-6300 Six-Core Processor
+8GiB 1600 MHz
+
+```
+
+
+https://superuser.com/a/1089140
+```
+for i in `seq 0 200`; do sudo ip addr add 10.0.0.$i/8 dev lo; done 
+```
+
+To remove:
+```
+for i in `seq 0 200`; do sudo ip addr del 10.0.0.$i/8 dev lo; done 
+```
+
+I didn't need to adjust limits because by default it's already above 1,000,000:
+```
+ulimit -Hn
+1048576
+```
+
+Nevermind there's something wrong with my limits:
+```
+java -XX:-MaxFDLimit  Main 80000
+.
+.
+.
+SERVER: 472 from /10.0.0.0:47375 to /127.0.0.1:9999
+Exception in thread "main" java.net.SocketException: Too many open files (Accept
+failed)
+        at java.net.PlainSocketImpl.socketAccept(Native Method)
+        atjava.net.AbstractPlainSocketImpl.accept(AbstractPlainSocketImpl.java:409)
+        at java.net.ServerSocket.implAccept(ServerSocket.java:560)
+        at java.net.ServerSocket.accept(ServerSocket.java:528)
+        at Main.lambda$main$1(Main.java:47)
+        at java.lang.Thread.run(Thread.java:748)
+java.net.SocketException: Too many open files
+        at java.net.Socket.createImpl(Socket.java:478)
+        at java.net.Socket.<init>(Socket.java:449)
+        at java.net.Socket.<init>(Socket.java:346)
+        at Main.main(Main.java:125)
+
+```
+
+Maybe it's the soft limit?
+```
+ulimit -Sn
+1024
+```
+
+```
+ulimit -Sn 1000000
+ulimit -Sn
+1000000
+```
+
+```
+java -XX:-MaxFDLimit  Main 80000
+.
+.
+.
+SERVER: 79998 from /10.0.0.15:57459 to /127.0.0.1:9999 msg 79998
+SERVER: 79999 from /10.0.0.15:48259 to /127.0.0.1:9999 msg 79999
+Shutting down sockets to server
+Shutting down sockets from client
+```
+
+```
+java -XX:-MaxFDLimit  Main 160000
+.
+.
+.
+SERVER: 159998 from /10.0.0.31:41043 to /127.0.0.1:9999 msg 159998
+SERVER: 159999 from /10.0.0.31:41513 to /127.0.0.1:9999 msg 159999
+Shutting down sockets to server
+Shutting down sockets from client
+```
+# second 160000 indicates to use 160,000 connections per client ip address
+java -XX:-MaxFDLimit  Main 160000 160000
+If you try to use all the ports from a single client IP you run out after 28,000:
+```
+SERVER: 28230 from /10.0.0.0:39902 to /127.0.0.1:9999
+SERVER: 28231 from /10.0.0.0:39906 to /127.0.0.1:9999
+Exception in thread "main" java.net.BindException: Address already in use (Bind failed)
+        at java.net.PlainSocketImpl.socketBind(Native Method)
+        at java.net.AbstractPlainSocketImpl.bind(AbstractPlainSocketImpl.java:387)
+        at java.net.Socket.bind(Socket.java:662)
+        at java.net.Socket.<init>(Socket.java:451)
+        at java.net.Socket.<init>(Socket.java:346)
+        at Main.main(Main.java:125)
+.
+.
+.
+```
+
+
+```
+java -XX:-MaxFDLimit  Main 320000
+...
+SERVER: 319998 from /10.0.0.63:39921 to /127.0.0.1:9999 msg 319998
+SERVER: 319999 from /10.0.0.63:36455 to /127.0.0.1:9999 msg 319999
+Shutting down sockets to server
+Shutting down sockets from client
+```
+
+Need increase ulimit
+```
+java -XX:-MaxFDLimit  Main 640000
+...
+SERVER: 499988 from /10.0.0.99:45337 to /127.0.0.1:9999
+SERVER: 499989 from /10.0.0.99:56891 to /127.0.0.1:9999
+java.net.SocketException: Too many open files (Accept failed)
+        at java.net.PlainSocketImpl.socketAccept(Native Method)
+        at
+java.net.AbstractPlainSocketImpl.accept(AbstractPlainSocketImpl.java:409)
+        at java.net.ServerSocket.implAccept(ServerSocket.java:560)
+        at java.net.ServerSocket.accept(ServerSocket.java:528)
+        at Main.lambda$main$1(Main.java:47)
+        at java.lang.Thread.run(Thread.java:748)
+```
+
+At that point linux complains if I try to increase the soft or hard limit beyond
+```
+ulimit -Sn 2000000
+bash: ulimit: open files: cannot modify limit: Invalid argument
+ulimit -Sn 1048576
+<no error>
+
+
+ulimit -Hn 
+1048576
+joseph@Joseph:~/projects/java-by-experiments/max_connections/src$ ulimit -Hn
+1048577
+bash: ulimit: open files: cannot modify limit: Operation not permitted
+
+ulimit -Hn 1048576
+<no error>
+ulimit -Hn 1048575
+<no error>
+```
+
+https://serverfault.com/a/1029846
+
+```
+cat /proc/sys/fs/file-max
+9223372036854775807
+cat /proc/sys/fs/file-nr
+8864    0       9223372036854775807
+
+```
+
+```
+sudo su
+# 2^25
+sysctl -w fs.nr_open=33554432
+fs.nr_open = 33554432
+ulimit -Hn 33554432
+ulimit -Sn 33554432
+
+```
+
+It worked!
+```
+java -XX:-MaxFDLimit  Main 640000
+...
+SERVER: 639998 from /10.0.0.127:47321 to /127.0.0.1:9999 msg 639998
+SERVER: 639999 from /10.0.0.127:48501 to /127.0.0.1:9999 msg 639999
+Shutting down sockets to server
+Shutting down sockets from client
+```
+
+I tried `1,000,000` but my computer became unresponsive. If I moved my mouse, it
+moved a minute later.
 
 </details>
