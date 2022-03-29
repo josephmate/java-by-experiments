@@ -8,10 +8,23 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Semaphore;
+import java.util.*;
+import java.text.*;
 
 public class Main {
 
   private static final int SERVER_PORT = 9999;
+	private static final TimeZone tz = TimeZone.getTimeZone("UTC");
+	private static final DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss:SSS'Z'"); // Quoted "Z" to indicate UTC, no timezone offset
+  static {
+		df.setTimeZone(tz);
+	}
+
+	public static void print(String msg) {
+		System.out.print(df.format(new Date()));
+		System.out.print("\t");
+		System.out.println(msg);
+	}
 
   public static void main(String[] args) throws Exception {
 
@@ -29,7 +42,7 @@ public class Main {
                 new ArrayList<>(numberOfConnections));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-          System.out.println("Shutting down sockets from client");
+          print("Shutting down sockets from client");
           try {
             for(Socket socket : tcpSocketsFromClient) {
               socket.close();;
@@ -46,13 +59,12 @@ public class Main {
           for (int i = 0; i < numberOfConnections; i++) {
             Socket tcpSocketFromClient = serverSocket.accept();
             tcpSocketsFromClient.add(tcpSocketFromClient);
-            System.out.println(
-                    "SERVER: " + i
-                    + " from " + tcpSocketFromClient.getInetAddress()
-                    + ":" + tcpSocketFromClient.getPort()
-                    + " to " + tcpSocketFromClient.getLocalAddress()
-                    + ":" + tcpSocketFromClient.getLocalPort()
-
+            print(
+              "SERVER: " + i
+              + " from " + tcpSocketFromClient.getInetAddress()
+              + ":" + tcpSocketFromClient.getPort()
+              + " to " + tcpSocketFromClient.getLocalAddress()
+              + ":" + tcpSocketFromClient.getLocalPort()
             );
           }
 
@@ -70,9 +82,9 @@ public class Main {
             tcpSocketFromClient.getInputStream().read(buffer.array());
             int msgFromClient = buffer.getInt();
             if (i != msgFromClient) {
-              System.out.println("ERROR: got " + msgFromClient + " but expected i");
+              print("ERROR: got " + msgFromClient + " but expected i");
             }
-            System.out.println(
+            print(
                     "SERVER: " + i
                     + " from " + tcpSocketFromClient.getInetAddress()
                     + ":" + tcpSocketFromClient.getPort()
@@ -102,7 +114,7 @@ public class Main {
     
     List<Socket> tcpConnectionsToServer = Collections.synchronizedList(new ArrayList<>(numberOfConnections));
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      System.out.println("Shutting down sockets to server");
+      print("Shutting down sockets to server");
       try {
         for(Socket socket : tcpConnectionsToServer) {
           socket.close();;
@@ -142,15 +154,15 @@ label:
         tcpConnectionToServer.getInputStream().read(buffer.array());
         int msgFromServer = buffer.getInt();
         if (i != msgFromServer) {
-          System.out.println("ERROR: got " + msgFromServer + " but expected i");
+          print("ERROR: got " + msgFromServer + " but expected i");
         }
-        System.out.println(
-                "CLIENT: " + i
-                        + " from " + tcpConnectionToServer.getInetAddress()
-                        + ":" + tcpConnectionToServer.getPort()
-                        + " to " + tcpConnectionToServer.getLocalAddress()
-                        + ":" + tcpConnectionToServer.getLocalPort()
-                        + " msg " + msgFromServer
+        print(
+          "CLIENT: " + i
+          + " from " + tcpConnectionToServer.getInetAddress()
+          + ":" + tcpConnectionToServer.getPort()
+          + " to " + tcpConnectionToServer.getLocalAddress()
+          + ":" + tcpConnectionToServer.getLocalPort()
+          + " msg " + msgFromServer
         );
         buffer.clear();
       }

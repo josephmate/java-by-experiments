@@ -3,4 +3,6 @@ target/
 *.jar
 *.tmp
 *.swp
+*.swo
 .idea/
+*.sar
