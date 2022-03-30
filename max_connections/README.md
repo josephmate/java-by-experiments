@@ -5,13 +5,13 @@ What's the max num of connections a server and client can concurrently keep open
 <details>
 <summary>Click to reveal the short summary.</summary>
 
-The theoretical limit is 1 billion because:
+The theoretical limit is 1 quadrillion because:
 
 1. [number of IP addresses]x[num of ports]
 2. because the server multiplexes the connections from the client using that.
 3. 32 bits for the address and 16 bits for the port
 4. In total is 2^48.
-5. Which is about a billion connects (log(2^32)/log(10)=9.63)!
+5. Which is about a billion connects (log(2^48)/log(10)=14.449)!
 
 ## Mac
 
