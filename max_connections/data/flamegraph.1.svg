@@ -1,0 +1,1164 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="694" onload="init(evt)" viewBox="0 0 1200 694" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES:  -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#eeeeee" offset="5%" />
+		<stop stop-color="#eeeeb0" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Verdana; font-size:12px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:17px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom();
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				clearzoom();
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 12 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		// Fit in full text width
+		if (/^ *$/.test(txt) || t.getSubStringLength(0, txt.length) < w)
+			return;
+
+		for (var x = txt.length - 2; x > 0; x--) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom() {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="694.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="24" >Flame Graph</text>
+<text id="details" x="10.00" y="677" > </text>
+<text id="unzoom" x="10.00" y="24" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="24" >Search</text>
+<text id="ignorecase" x="1174.00" y="24" >ic</text>
+<text id="matched" x="1090.00" y="677" > </text>
+<g id="frames">
+<g >
+<title>CompileBroker::invoke_compiler_on_method(CompileTask*) (3 samples, 2.94%)</title><rect x="1155.3" y="549" width="34.7" height="15.0" fill="rgb(225,19,1)" rx="2" ry="2" />
+<text  x="1158.29" y="559.5" >Co..</text>
+</g>
+<g >
+<title>java/lang/invoke/DelegatingMethodHandle.chooseDelegatingForm (1 samples, 0.98%)</title><rect x="91.0" y="309" width="11.5" height="15.0" fill="rgb(248,1,43)" rx="2" ry="2" />
+<text  x="93.98" y="319.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle$Lazy.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="102.5" y="245" width="11.6" height="15.0" fill="rgb(215,220,25)" rx="2" ry="2" />
+<text  x="105.55" y="255.5" ></text>
+</g>
+<g >
+<title>mprotect (1 samples, 0.98%)</title><rect x="91.0" y="37" width="11.5" height="15.0" fill="rgb(249,26,42)" rx="2" ry="2" />
+<text  x="93.98" y="47.5" ></text>
+</g>
+<g >
+<title>sun/misc/Unsafe.defineAnonymousClass (1 samples, 0.98%)</title><rect x="91.0" y="53" width="11.5" height="15.0" fill="rgb(251,163,36)" rx="2" ry="2" />
+<text  x="93.98" y="63.5" ></text>
+</g>
+<g >
+<title>JavaMain (6 samples, 5.88%)</title><rect x="10.0" y="629" width="69.4" height="15.0" fill="rgb(212,50,40)" rx="2" ry="2" />
+<text  x="13.00" y="639.5" >JavaMain</text>
+</g>
+<g >
+<title>ConstantPool::klass_at_impl(constantPoolHandle, int, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="501" width="11.6" height="15.0" fill="rgb(244,145,47)" rx="2" ry="2" />
+<text  x="82.41" y="511.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::resolve_or_fail(Symbol*, Handle, Handle, bool, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="197" width="11.6" height="15.0" fill="rgb(252,116,27)" rx="2" ry="2" />
+<text  x="105.55" y="207.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::load_instance_class(Symbol*, Handle, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="469" width="11.6" height="15.0" fill="rgb(211,202,12)" rx="2" ry="2" />
+<text  x="695.55" y="479.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/locks/LockSupport.park (1 samples, 0.98%)</title><rect x="114.1" y="549" width="11.6" height="15.0" fill="rgb(205,155,43)" rx="2" ry="2" />
+<text  x="117.12" y="559.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl.varargsArray (1 samples, 0.98%)</title><rect x="91.0" y="437" width="11.5" height="15.0" fill="rgb(209,33,53)" rx="2" ry="2" />
+<text  x="93.98" y="447.5" ></text>
+</g>
+<g >
+<title>ZIP_ReadEntry (1 samples, 0.98%)</title><rect x="102.5" y="85" width="11.6" height="15.0" fill="rgb(253,220,6)" rx="2" ry="2" />
+<text  x="105.55" y="95.5" ></text>
+</g>
+<g >
+<title>java/text/SimpleDateFormat.initializeCalendar (1 samples, 0.98%)</title><rect x="79.4" y="581" width="11.6" height="15.0" fill="rgb(223,180,0)" rx="2" ry="2" />
+<text  x="82.41" y="591.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.make (1 samples, 0.98%)</title><rect x="91.0" y="181" width="11.5" height="15.0" fill="rgb(236,31,21)" rx="2" ry="2" />
+<text  x="93.98" y="191.5" ></text>
+</g>
+<g >
+<title>InterpreterRuntime::ldc(JavaThread*, bool) (1 samples, 0.98%)</title><rect x="102.5" y="229" width="11.6" height="15.0" fill="rgb(220,188,41)" rx="2" ry="2" />
+<text  x="105.55" y="239.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/InvokerBytecodeGenerator.generateCustomizedCode (1 samples, 0.98%)</title><rect x="91.0" y="101" width="11.5" height="15.0" fill="rgb(252,203,4)" rx="2" ry="2" />
+<text  x="93.98" y="111.5" ></text>
+</g>
+<g >
+<title>java/util/Calendar.createCalendar (1 samples, 0.98%)</title><rect x="79.4" y="549" width="11.6" height="15.0" fill="rgb(205,164,10)" rx="2" ry="2" />
+<text  x="82.41" y="559.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.preparedLambdaForm (1 samples, 0.98%)</title><rect x="102.5" y="501" width="11.6" height="15.0" fill="rgb(227,172,19)" rx="2" ry="2" />
+<text  x="105.55" y="511.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/LambdaForm.compileToBytecode (1 samples, 0.98%)</title><rect x="91.0" y="117" width="11.5" height="15.0" fill="rgb(232,14,41)" rx="2" ry="2" />
+<text  x="93.98" y="127.5" ></text>
+</g>
+<g >
+<title>InterpreterRuntime::_new(JavaThread*, ConstantPool*, int) (1 samples, 0.98%)</title><rect x="79.4" y="517" width="11.6" height="15.0" fill="rgb(213,107,46)" rx="2" ry="2" />
+<text  x="82.41" y="527.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/InvokerBytecodeGenerator.loadMethod (1 samples, 0.98%)</title><rect x="91.0" y="85" width="11.5" height="15.0" fill="rgb(210,229,31)" rx="2" ry="2" />
+<text  x="93.98" y="95.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleNatives.linkCallSiteImpl (1 samples, 0.98%)</title><rect x="91.0" y="597" width="11.5" height="15.0" fill="rgb(212,100,39)" rx="2" ry="2" />
+<text  x="93.98" y="607.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.makePreparedLambdaForm (1 samples, 0.98%)</title><rect x="91.0" y="133" width="11.5" height="15.0" fill="rgb(235,110,52)" rx="2" ry="2" />
+<text  x="93.98" y="143.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/Finalizer$FinalizerThread.run (6 samples, 5.88%)</title><rect x="715.7" y="629" width="69.4" height="15.0" fill="rgb(252,47,2)" rx="2" ry="2" />
+<text  x="718.69" y="639.5" >java/la..</text>
+</g>
+<g >
+<title>java/lang/invoke/LambdaForm$NamedFunction.&lt;init&gt; (1 samples, 0.98%)</title><rect x="91.0" y="245" width="11.5" height="15.0" fill="rgb(231,37,11)" rx="2" ry="2" />
+<text  x="93.98" y="255.5" ></text>
+</g>
+<g >
+<title>Compilation::compile_java_method() (1 samples, 0.98%)</title><rect x="1166.9" y="485" width="11.5" height="15.0" fill="rgb(252,224,10)" rx="2" ry="2" />
+<text  x="1169.86" y="495.5" ></text>
+</g>
+<g >
+<title>IR::IR(Compilation*, ciMethod*, int) (1 samples, 0.98%)</title><rect x="1166.9" y="453" width="11.5" height="15.0" fill="rgb(242,195,12)" rx="2" ry="2" />
+<text  x="1169.86" y="463.5" ></text>
+</g>
+<g >
+<title>java/text/SimpleDateFormat.&lt;init&gt; (1 samples, 0.98%)</title><rect x="79.4" y="597" width="11.6" height="15.0" fill="rgb(219,198,36)" rx="2" ry="2" />
+<text  x="82.41" y="607.5" ></text>
+</g>
+<g >
+<title>sun/misc/Unsafe.park (1 samples, 0.98%)</title><rect x="114.1" y="533" width="11.6" height="15.0" fill="rgb(238,11,2)" rx="2" ry="2" />
+<text  x="117.12" y="543.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl.makeArrays (1 samples, 0.98%)</title><rect x="91.0" y="373" width="11.5" height="15.0" fill="rgb(235,71,53)" rx="2" ry="2" />
+<text  x="93.98" y="383.5" ></text>
+</g>
+<g >
+<title>all (102 samples, 100%)</title><rect x="10.0" y="645" width="1180.0" height="15.0" fill="rgb(240,32,50)" rx="2" ry="2" />
+<text  x="13.00" y="655.5" ></text>
+</g>
+<g >
+<title>ClassLoader::load_classfile(Symbol*, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="437" width="11.6" height="15.0" fill="rgb(217,8,13)" rx="2" ry="2" />
+<text  x="82.41" y="447.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="117" width="11.5" height="15.0" fill="rgb(230,182,51)" rx="2" ry="2" />
+<text  x="1169.86" y="127.5" ></text>
+</g>
+<g >
+<title>Compilation::compile_method() (1 samples, 0.98%)</title><rect x="1166.9" y="501" width="11.5" height="15.0" fill="rgb(216,170,9)" rx="2" ry="2" />
+<text  x="1169.86" y="511.5" ></text>
+</g>
+<g >
+<title>ZIP_Read (1 samples, 0.98%)</title><rect x="102.5" y="69" width="11.6" height="15.0" fill="rgb(233,77,23)" rx="2" ry="2" />
+<text  x="105.55" y="79.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/Invokers.basicInvoker (1 samples, 0.98%)</title><rect x="91.0" y="229" width="11.5" height="15.0" fill="rgb(234,5,8)" rx="2" ry="2" />
+<text  x="93.98" y="239.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl.makeIntrinsic (1 samples, 0.98%)</title><rect x="91.0" y="357" width="11.5" height="15.0" fill="rgb(242,139,24)" rx="2" ry="2" />
+<text  x="93.98" y="367.5" ></text>
+</g>
+<g >
+<title>ZIP_GetEntryDataOffset (1 samples, 0.98%)</title><rect x="692.5" y="357" width="11.6" height="15.0" fill="rgb(241,200,20)" rx="2" ry="2" />
+<text  x="695.55" y="367.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="165" width="11.5" height="15.0" fill="rgb(236,228,46)" rx="2" ry="2" />
+<text  x="1169.86" y="175.5" ></text>
+</g>
+<g >
+<title>ConstantPool::klass_at_impl(constantPoolHandle, int, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="517" width="11.6" height="15.0" fill="rgb(229,127,4)" rx="2" ry="2" />
+<text  x="695.55" y="527.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::resolve_instance_class_or_null(Symbol*, Handle, Handle, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="485" width="11.6" height="15.0" fill="rgb(219,201,25)" rx="2" ry="2" />
+<text  x="695.55" y="495.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.findStatic (1 samples, 0.98%)</title><rect x="102.5" y="357" width="11.6" height="15.0" fill="rgb(242,5,29)" rx="2" ry="2" />
+<text  x="105.55" y="367.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.doAcquireSharedInterruptibly (1 samples, 0.98%)</title><rect x="114.1" y="581" width="11.6" height="15.0" fill="rgb(254,140,27)" rx="2" ry="2" />
+<text  x="117.12" y="591.5" ></text>
+</g>
+<g >
+<title>ClassLoader::load_classfile(Symbol*, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="453" width="11.6" height="15.0" fill="rgb(232,164,21)" rx="2" ry="2" />
+<text  x="695.55" y="463.5" ></text>
+</g>
+<g >
+<title>ValueRecorder&lt;_jobject*&gt;::ValueRecorder(Arena*) (1 samples, 0.98%)</title><rect x="1178.4" y="501" width="11.6" height="15.0" fill="rgb(215,47,15)" rx="2" ry="2" />
+<text  x="1181.43" y="511.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethodNoSecurityManager (1 samples, 0.98%)</title><rect x="102.5" y="565" width="11.6" height="15.0" fill="rgb(205,99,29)" rx="2" ry="2" />
+<text  x="105.55" y="575.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DelegatingMethodHandle.makeReinvokerForm (1 samples, 0.98%)</title><rect x="91.0" y="277" width="11.5" height="15.0" fill="rgb(236,163,4)" rx="2" ry="2" />
+<text  x="93.98" y="287.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="405" width="11.5" height="15.0" fill="rgb(215,154,17)" rx="2" ry="2" />
+<text  x="1169.86" y="415.5" ></text>
+</g>
+<g >
+<title>Main.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="79.4" y="629" width="11.6" height="15.0" fill="rgb(229,9,12)" rx="2" ry="2" />
+<text  x="82.41" y="639.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.preparedLambdaForm (1 samples, 0.98%)</title><rect x="102.5" y="277" width="11.6" height="15.0" fill="rgb(206,35,16)" rx="2" ry="2" />
+<text  x="105.55" y="287.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.preparedLambdaForm (1 samples, 0.98%)</title><rect x="91.0" y="149" width="11.5" height="15.0" fill="rgb(215,126,43)" rx="2" ry="2" />
+<text  x="93.98" y="159.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::resolve_or_fail(Symbol*, Handle, Handle, bool, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="501" width="11.6" height="15.0" fill="rgb(239,32,49)" rx="2" ry="2" />
+<text  x="695.55" y="511.5" ></text>
+</g>
+<g >
+<title>IndexSetIterator::advance_and_next() (1 samples, 0.98%)</title><rect x="1155.3" y="453" width="11.6" height="15.0" fill="rgb(244,174,39)" rx="2" ry="2" />
+<text  x="1158.29" y="463.5" ></text>
+</g>
+<g >
+<title>Compilation::Compilation(AbstractCompiler*, ciEnv*, ciMethod*, int, BufferBlob*) (2 samples, 1.96%)</title><rect x="1166.9" y="517" width="23.1" height="15.0" fill="rgb(207,126,42)" rx="2" ry="2" />
+<text  x="1169.86" y="527.5" >C..</text>
+</g>
+<g >
+<title>ClassLoader::load_classfile(Symbol*, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="149" width="11.6" height="15.0" fill="rgb(218,32,3)" rx="2" ry="2" />
+<text  x="105.55" y="159.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethod (1 samples, 0.98%)</title><rect x="102.5" y="341" width="11.6" height="15.0" fill="rgb(251,84,40)" rx="2" ry="2" />
+<text  x="105.55" y="351.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="213" width="11.5" height="15.0" fill="rgb(212,110,9)" rx="2" ry="2" />
+<text  x="1169.86" y="223.5" ></text>
+</g>
+<g >
+<title>java/lang/Object.wait (6 samples, 5.88%)</title><rect x="785.1" y="581" width="69.4" height="15.0" fill="rgb(231,10,52)" rx="2" ry="2" />
+<text  x="788.10" y="591.5" >java/la..</text>
+</g>
+<g >
+<title>java/lang/ref/Reference$ReferenceHandler.run (6 samples, 5.88%)</title><rect x="785.1" y="629" width="69.4" height="15.0" fill="rgb(235,135,22)" rx="2" ry="2" />
+<text  x="788.10" y="639.5" >java/la..</text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="357" width="11.5" height="15.0" fill="rgb(246,66,19)" rx="2" ry="2" />
+<text  x="1169.86" y="367.5" ></text>
+</g>
+<g >
+<title>java/util/Calendar.getInstance (1 samples, 0.98%)</title><rect x="79.4" y="565" width="11.6" height="15.0" fill="rgb(218,18,29)" rx="2" ry="2" />
+<text  x="82.41" y="575.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/BoundMethodHandle$Factory.makeCtors (1 samples, 0.98%)</title><rect x="102.5" y="389" width="11.6" height="15.0" fill="rgb(215,126,9)" rx="2" ry="2" />
+<text  x="105.55" y="399.5" ></text>
+</g>
+<g >
+<title>Compiler::compile_method(ciEnv*, ciMethod*, int) (2 samples, 1.96%)</title><rect x="1166.9" y="533" width="23.1" height="15.0" fill="rgb(213,127,24)" rx="2" ry="2" />
+<text  x="1169.86" y="543.5" >C..</text>
+</g>
+<g >
+<title>SystemDictionary::resolve_instance_class_or_null(Symbol*, Handle, Handle, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="181" width="11.6" height="15.0" fill="rgb(252,8,34)" rx="2" ry="2" />
+<text  x="105.55" y="191.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/LambdaForm.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="102.5" y="469" width="11.6" height="15.0" fill="rgb(250,43,43)" rx="2" ry="2" />
+<text  x="105.55" y="479.5" ></text>
+</g>
+<g >
+<title>ZIP_GetEntryDataOffset (1 samples, 0.98%)</title><rect x="102.5" y="53" width="11.6" height="15.0" fill="rgb(230,178,1)" rx="2" ry="2" />
+<text  x="105.55" y="63.5" ></text>
+</g>
+<g >
+<title>LazyClassPathEntry::open_stream(char const*, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="437" width="11.6" height="15.0" fill="rgb(210,77,33)" rx="2" ry="2" />
+<text  x="695.55" y="447.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.findStatic (1 samples, 0.98%)</title><rect x="91.0" y="565" width="11.5" height="15.0" fill="rgb(208,163,6)" rx="2" ry="2" />
+<text  x="93.98" y="575.5" ></text>
+</g>
+<g >
+<title>__pthread_cond_wait (1 samples, 0.98%)</title><rect x="114.1" y="517" width="11.6" height="15.0" fill="rgb(243,103,25)" rx="2" ry="2" />
+<text  x="117.12" y="527.5" ></text>
+</g>
+<g >
+<title>CompileBroker::compiler_thread_loop() (3 samples, 2.94%)</title><rect x="1155.3" y="565" width="34.7" height="15.0" fill="rgb(250,209,48)" rx="2" ry="2" />
+<text  x="1158.29" y="575.5" >Co..</text>
+</g>
+<g >
+<title>JavaThread::run() (3 samples, 2.94%)</title><rect x="1155.3" y="597" width="34.7" height="15.0" fill="rgb(228,44,30)" rx="2" ry="2" />
+<text  x="1158.29" y="607.5" >Ja..</text>
+</g>
+<g >
+<title>read (1 samples, 0.98%)</title><rect x="102.5" y="37" width="11.6" height="15.0" fill="rgb(206,120,45)" rx="2" ry="2" />
+<text  x="105.55" y="47.5" ></text>
+</g>
+<g >
+<title>PhaseIFG::Compute_Effective_Degree() (1 samples, 0.98%)</title><rect x="1155.3" y="469" width="11.6" height="15.0" fill="rgb(216,144,4)" rx="2" ry="2" />
+<text  x="1158.29" y="479.5" ></text>
+</g>
+<g >
+<title>read (1 samples, 0.98%)</title><rect x="692.5" y="341" width="11.6" height="15.0" fill="rgb(228,7,43)" rx="2" ry="2" />
+<text  x="695.55" y="351.5" ></text>
+</g>
+<g >
+<title>java/lang/Object.wait (6 samples, 5.88%)</title><rect x="785.1" y="597" width="69.4" height="15.0" fill="rgb(238,115,29)" rx="2" ry="2" />
+<text  x="788.10" y="607.5" >java/la..</text>
+</g>
+<g >
+<title>java/lang/Shutdown.sequence (1 samples, 0.98%)</title><rect x="692.5" y="613" width="11.6" height="15.0" fill="rgb(254,87,37)" rx="2" ry="2" />
+<text  x="695.55" y="623.5" ></text>
+</g>
+<g >
+<title>JavaThread::thread_main_inner() (3 samples, 2.94%)</title><rect x="1155.3" y="581" width="34.7" height="15.0" fill="rgb(250,216,26)" rx="2" ry="2" />
+<text  x="1158.29" y="591.5" >Ja..</text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethodCommon (1 samples, 0.98%)</title><rect x="102.5" y="549" width="11.6" height="15.0" fill="rgb(241,186,17)" rx="2" ry="2" />
+<text  x="105.55" y="559.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.makePreparedLambdaForm (1 samples, 0.98%)</title><rect x="102.5" y="261" width="11.6" height="15.0" fill="rgb(239,152,33)" rx="2" ry="2" />
+<text  x="105.55" y="271.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/LambdaForm$Name.&lt;init&gt; (1 samples, 0.98%)</title><rect x="91.0" y="261" width="11.5" height="15.0" fill="rgb(221,9,36)" rx="2" ry="2" />
+<text  x="93.98" y="271.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="325" width="11.5" height="15.0" fill="rgb(222,133,28)" rx="2" ry="2" />
+<text  x="1169.86" y="335.5" ></text>
+</g>
+<g >
+<title>Compile::Code_Gen() (1 samples, 0.98%)</title><rect x="1155.3" y="501" width="11.6" height="15.0" fill="rgb(206,58,50)" rx="2" ry="2" />
+<text  x="1158.29" y="511.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="229" width="11.5" height="15.0" fill="rgb(250,218,20)" rx="2" ry="2" />
+<text  x="1169.86" y="239.5" ></text>
+</g>
+<g >
+<title>java/lang/Thread.run (1 samples, 0.98%)</title><rect x="704.1" y="629" width="11.6" height="15.0" fill="rgb(220,46,47)" rx="2" ry="2" />
+<text  x="707.12" y="639.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.linkMethodHandleConstant (1 samples, 0.98%)</title><rect x="102.5" y="597" width="11.6" height="15.0" fill="rgb(234,49,1)" rx="2" ry="2" />
+<text  x="105.55" y="607.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/BoundMethodHandle.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="102.5" y="437" width="11.6" height="15.0" fill="rgb(215,38,52)" rx="2" ry="2" />
+<text  x="105.55" y="447.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandle.asCollector (1 samples, 0.98%)</title><rect x="91.0" y="453" width="11.5" height="15.0" fill="rgb(214,185,14)" rx="2" ry="2" />
+<text  x="93.98" y="463.5" ></text>
+</g>
+<g >
+<title>ConstantPool::klass_at_impl(constantPoolHandle, int, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="213" width="11.6" height="15.0" fill="rgb(225,95,46)" rx="2" ry="2" />
+<text  x="105.55" y="223.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/Semaphore.acquire (1 samples, 0.98%)</title><rect x="114.1" y="613" width="11.6" height="15.0" fill="rgb(216,74,53)" rx="2" ry="2" />
+<text  x="117.12" y="623.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.make (1 samples, 0.98%)</title><rect x="102.5" y="533" width="11.6" height="15.0" fill="rgb(227,60,27)" rx="2" ry="2" />
+<text  x="105.55" y="543.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="277" width="11.5" height="15.0" fill="rgb(230,99,17)" rx="2" ry="2" />
+<text  x="1169.86" y="287.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.parkAndCheckInterrupt (1 samples, 0.98%)</title><rect x="114.1" y="565" width="11.6" height="15.0" fill="rgb(243,70,8)" rx="2" ry="2" />
+<text  x="117.12" y="575.5" ></text>
+</g>
+<g >
+<title>Main.lambda$main$1 (1 samples, 0.98%)</title><rect x="704.1" y="597" width="11.6" height="15.0" fill="rgb(210,159,51)" rx="2" ry="2" />
+<text  x="707.12" y="607.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl$AsVarargsCollector.&lt;init&gt; (1 samples, 0.98%)</title><rect x="91.0" y="485" width="11.5" height="15.0" fill="rgb(223,105,4)" rx="2" ry="2" />
+<text  x="93.98" y="495.5" ></text>
+</g>
+<g >
+<title>ClassFileParser::parse_constant_pool_entries(int, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="389" width="11.6" height="15.0" fill="rgb(236,118,1)" rx="2" ry="2" />
+<text  x="82.41" y="399.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DelegatingMethodHandle.&lt;init&gt; (1 samples, 0.98%)</title><rect x="91.0" y="325" width="11.5" height="15.0" fill="rgb(246,164,29)" rx="2" ry="2" />
+<text  x="93.98" y="335.5" ></text>
+</g>
+<g >
+<title>java/lang/ApplicationShutdownHooks$1.run (1 samples, 0.98%)</title><rect x="692.5" y="581" width="11.6" height="15.0" fill="rgb(239,211,14)" rx="2" ry="2" />
+<text  x="695.55" y="591.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="197" width="11.5" height="15.0" fill="rgb(253,124,5)" rx="2" ry="2" />
+<text  x="1169.86" y="207.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="341" width="11.5" height="15.0" fill="rgb(245,218,51)" rx="2" ry="2" />
+<text  x="1169.86" y="351.5" ></text>
+</g>
+<g >
+<title>java/util/concurrent/locks/AbstractQueuedSynchronizer.acquireSharedInterruptibly (1 samples, 0.98%)</title><rect x="114.1" y="597" width="11.6" height="15.0" fill="rgb(253,7,36)" rx="2" ry="2" />
+<text  x="117.12" y="607.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleNatives.linkMethodHandleConstant (1 samples, 0.98%)</title><rect x="102.5" y="613" width="11.6" height="15.0" fill="rgb(249,96,38)" rx="2" ry="2" />
+<text  x="105.55" y="623.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl.access$000 (1 samples, 0.98%)</title><rect x="91.0" y="389" width="11.5" height="15.0" fill="rgb(221,201,3)" rx="2" ry="2" />
+<text  x="93.98" y="399.5" ></text>
+</g>
+<g >
+<title>java/lang/Shutdown.shutdown (1 samples, 0.98%)</title><rect x="692.5" y="629" width="11.6" height="15.0" fill="rgb(232,198,33)" rx="2" ry="2" />
+<text  x="695.55" y="639.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethodForConstant (1 samples, 0.98%)</title><rect x="102.5" y="581" width="11.6" height="15.0" fill="rgb(228,218,29)" rx="2" ry="2" />
+<text  x="105.55" y="591.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethodCommon (1 samples, 0.98%)</title><rect x="102.5" y="325" width="11.6" height="15.0" fill="rgb(243,101,51)" rx="2" ry="2" />
+<text  x="105.55" y="335.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="373" width="11.5" height="15.0" fill="rgb(213,132,31)" rx="2" ry="2" />
+<text  x="1169.86" y="383.5" ></text>
+</g>
+<g >
+<title>Main$$Lambda$1/2074407503.run (1 samples, 0.98%)</title><rect x="704.1" y="613" width="11.6" height="15.0" fill="rgb(231,50,19)" rx="2" ry="2" />
+<text  x="707.12" y="623.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="261" width="11.5" height="15.0" fill="rgb(233,145,24)" rx="2" ry="2" />
+<text  x="1169.86" y="271.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/Reference.tryHandlePending (6 samples, 5.88%)</title><rect x="785.1" y="613" width="69.4" height="15.0" fill="rgb(207,138,17)" rx="2" ry="2" />
+<text  x="788.10" y="623.5" >java/la..</text>
+</g>
+<g >
+<title>java/lang/invoke/LambdaForm.createIdentityForms (1 samples, 0.98%)</title><rect x="102.5" y="453" width="11.6" height="15.0" fill="rgb(233,144,20)" rx="2" ry="2" />
+<text  x="105.55" y="463.5" ></text>
+</g>
+<g >
+<title>__pthread_cond_wait (42 samples, 41.18%)</title><rect x="137.3" y="629" width="485.8" height="15.0" fill="rgb(212,161,30)" rx="2" ry="2" />
+<text  x="140.25" y="639.5" >__pthread_cond_wait</text>
+</g>
+<g >
+<title>Compilation::build_hir() [clone .part.0] (1 samples, 0.98%)</title><rect x="1166.9" y="469" width="11.5" height="15.0" fill="rgb(237,204,12)" rx="2" ry="2" />
+<text  x="1169.86" y="479.5" ></text>
+</g>
+<g >
+<title>GraphBuilder::GraphBuilder(Compilation*, IRScope*) (1 samples, 0.98%)</title><rect x="1166.9" y="437" width="11.5" height="15.0" fill="rgb(230,199,36)" rx="2" ry="2" />
+<text  x="1169.86" y="447.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/BoundMethodHandle$SpeciesData.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="102.5" y="421" width="11.6" height="15.0" fill="rgb(246,48,39)" rx="2" ry="2" />
+<text  x="105.55" y="431.5" ></text>
+</g>
+<g >
+<title>ClassFileParser::parse_constant_pool(Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="405" width="11.6" height="15.0" fill="rgb(236,21,27)" rx="2" ry="2" />
+<text  x="82.41" y="415.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.make (1 samples, 0.98%)</title><rect x="91.0" y="197" width="11.5" height="15.0" fill="rgb(229,42,49)" rx="2" ry="2" />
+<text  x="93.98" y="207.5" ></text>
+</g>
+<g >
+<title>java/util/IdentityHashMap.keySet (1 samples, 0.98%)</title><rect x="692.5" y="549" width="11.6" height="15.0" fill="rgb(253,114,35)" rx="2" ry="2" />
+<text  x="695.55" y="559.5" ></text>
+</g>
+<g >
+<title>ClassPathZipEntry::open_stream(char const*, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="117" width="11.6" height="15.0" fill="rgb(228,95,40)" rx="2" ry="2" />
+<text  x="105.55" y="127.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="293" width="11.5" height="15.0" fill="rgb(226,173,9)" rx="2" ry="2" />
+<text  x="1169.86" y="303.5" ></text>
+</g>
+<g >
+<title>java/text/SimpleDateFormat.&lt;init&gt; (1 samples, 0.98%)</title><rect x="79.4" y="613" width="11.6" height="15.0" fill="rgb(241,127,42)" rx="2" ry="2" />
+<text  x="82.41" y="623.5" ></text>
+</g>
+<g >
+<title>__pthread_cond_wait (6 samples, 5.88%)</title><rect x="785.1" y="565" width="69.4" height="15.0" fill="rgb(216,207,53)" rx="2" ry="2" />
+<text  x="788.10" y="575.5" >__pthre..</text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.make (1 samples, 0.98%)</title><rect x="91.0" y="213" width="11.5" height="15.0" fill="rgb(249,65,51)" rx="2" ry="2" />
+<text  x="93.98" y="223.5" ></text>
+</g>
+<g >
+<title>java/net/ServerSocket.accept (1 samples, 0.98%)</title><rect x="704.1" y="581" width="11.6" height="15.0" fill="rgb(248,94,41)" rx="2" ry="2" />
+<text  x="707.12" y="591.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/ReferenceQueue.remove (6 samples, 5.88%)</title><rect x="715.7" y="597" width="69.4" height="15.0" fill="rgb(218,43,23)" rx="2" ry="2" />
+<text  x="718.69" y="607.5" >java/la..</text>
+</g>
+<g >
+<title>java/net/ServerSocket.implAccept (1 samples, 0.98%)</title><rect x="704.1" y="565" width="11.6" height="15.0" fill="rgb(226,166,14)" rx="2" ry="2" />
+<text  x="707.12" y="575.5" ></text>
+</g>
+<g >
+<title>do_futex_wait.constprop.0 (6 samples, 5.88%)</title><rect x="623.1" y="629" width="69.4" height="15.0" fill="rgb(231,183,50)" rx="2" ry="2" />
+<text  x="626.14" y="639.5" >do_fute..</text>
+</g>
+<g >
+<title>Symbol::equals(char const*, int) const (1 samples, 0.98%)</title><rect x="79.4" y="373" width="11.6" height="15.0" fill="rgb(246,224,4)" rx="2" ry="2" />
+<text  x="82.41" y="383.5" ></text>
+</g>
+<g >
+<title>ClassPathZipEntry::open_stream(char const*, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="421" width="11.6" height="15.0" fill="rgb(215,157,39)" rx="2" ry="2" />
+<text  x="695.55" y="431.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleNatives.linkCallSite (1 samples, 0.98%)</title><rect x="91.0" y="613" width="11.5" height="15.0" fill="rgb(233,99,44)" rx="2" ry="2" />
+<text  x="93.98" y="623.5" ></text>
+</g>
+<g >
+<title>java/lang/ApplicationShutdownHooks.runHooks (1 samples, 0.98%)</title><rect x="692.5" y="565" width="11.6" height="15.0" fill="rgb(217,170,13)" rx="2" ry="2" />
+<text  x="695.55" y="575.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl.varargsArray (1 samples, 0.98%)</title><rect x="91.0" y="421" width="11.5" height="15.0" fill="rgb(225,185,43)" rx="2" ry="2" />
+<text  x="93.98" y="431.5" ></text>
+</g>
+<g >
+<title>PhaseChaitin::Register_Allocate() (1 samples, 0.98%)</title><rect x="1155.3" y="485" width="11.6" height="15.0" fill="rgb(243,43,7)" rx="2" ry="2" />
+<text  x="1158.29" y="495.5" ></text>
+</g>
+<g >
+<title>java/lang/ref/ReferenceQueue.remove (6 samples, 5.88%)</title><rect x="715.7" y="613" width="69.4" height="15.0" fill="rgb(242,202,14)" rx="2" ry="2" />
+<text  x="718.69" y="623.5" >java/la..</text>
+</g>
+<g >
+<title>PhiSimplifier::block_do(BlockBegin*) (1 samples, 0.98%)</title><rect x="1166.9" y="101" width="11.5" height="15.0" fill="rgb(230,103,27)" rx="2" ry="2" />
+<text  x="1169.86" y="111.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.preparedLambdaForm (1 samples, 0.98%)</title><rect x="102.5" y="293" width="11.6" height="15.0" fill="rgb(232,166,30)" rx="2" ry="2" />
+<text  x="105.55" y="303.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/BoundMethodHandle$Factory.makeCbmhCtor (1 samples, 0.98%)</title><rect x="102.5" y="373" width="11.6" height="15.0" fill="rgb(206,207,6)" rx="2" ry="2" />
+<text  x="105.55" y="383.5" ></text>
+</g>
+<g >
+<title>LazyClassPathEntry::open_stream(char const*, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="133" width="11.6" height="15.0" fill="rgb(250,17,49)" rx="2" ry="2" />
+<text  x="105.55" y="143.5" ></text>
+</g>
+<g >
+<title>java/net/AbstractPlainSocketImpl.accept (1 samples, 0.98%)</title><rect x="704.1" y="549" width="11.6" height="15.0" fill="rgb(218,181,51)" rx="2" ry="2" />
+<text  x="707.12" y="559.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl$AsVarargsCollector.&lt;init&gt; (1 samples, 0.98%)</title><rect x="91.0" y="469" width="11.5" height="15.0" fill="rgb(226,173,21)" rx="2" ry="2" />
+<text  x="93.98" y="479.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethodCommon (1 samples, 0.98%)</title><rect x="91.0" y="533" width="11.5" height="15.0" fill="rgb(231,150,2)" rx="2" ry="2" />
+<text  x="93.98" y="543.5" ></text>
+</g>
+<g >
+<title>java/lang/Shutdown.runHooks (1 samples, 0.98%)</title><rect x="692.5" y="597" width="11.6" height="15.0" fill="rgb(224,87,10)" rx="2" ry="2" />
+<text  x="695.55" y="607.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandle.setVarargs (1 samples, 0.98%)</title><rect x="91.0" y="517" width="11.5" height="15.0" fill="rgb(247,25,36)" rx="2" ry="2" />
+<text  x="93.98" y="527.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="133" width="11.5" height="15.0" fill="rgb(220,218,39)" rx="2" ry="2" />
+<text  x="1169.86" y="143.5" ></text>
+</g>
+<g >
+<title>ClassPathZipEntry::open_entry(char const*, int*, bool, Thread*) (1 samples, 0.98%)</title><rect x="692.5" y="405" width="11.6" height="15.0" fill="rgb(226,155,19)" rx="2" ry="2" />
+<text  x="695.55" y="415.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.makePreparedLambdaForm (1 samples, 0.98%)</title><rect x="102.5" y="485" width="11.6" height="15.0" fill="rgb(226,81,28)" rx="2" ry="2" />
+<text  x="105.55" y="495.5" ></text>
+</g>
+<g >
+<title>sun/util/locale/provider/CalendarProviderImpl.getInstance (1 samples, 0.98%)</title><rect x="79.4" y="533" width="11.6" height="15.0" fill="rgb(214,188,36)" rx="2" ry="2" />
+<text  x="82.41" y="543.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="389" width="11.5" height="15.0" fill="rgb(229,10,14)" rx="2" ry="2" />
+<text  x="1169.86" y="399.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::load_instance_class(Symbol*, Handle, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="453" width="11.6" height="15.0" fill="rgb(235,202,28)" rx="2" ry="2" />
+<text  x="82.41" y="463.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandles$Lookup.getDirectMethod (1 samples, 0.98%)</title><rect x="91.0" y="549" width="11.5" height="15.0" fill="rgb(220,154,38)" rx="2" ry="2" />
+<text  x="93.98" y="559.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/CallSite.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="91.0" y="581" width="11.5" height="15.0" fill="rgb(213,164,19)" rx="2" ry="2" />
+<text  x="93.98" y="591.5" ></text>
+</g>
+<g >
+<title>__libc_poll (1 samples, 0.98%)</title><rect x="704.1" y="501" width="11.6" height="15.0" fill="rgb(243,88,12)" rx="2" ry="2" />
+<text  x="707.12" y="511.5" ></text>
+</g>
+<g >
+<title>java_start(Thread*) (3 samples, 2.94%)</title><rect x="1155.3" y="613" width="34.7" height="15.0" fill="rgb(217,55,21)" rx="2" ry="2" />
+<text  x="1158.29" y="623.5" >ja..</text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="245" width="11.5" height="15.0" fill="rgb(205,44,29)" rx="2" ry="2" />
+<text  x="1169.86" y="255.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/InvokerBytecodeGenerator.loadAndInitializeInvokerClass (1 samples, 0.98%)</title><rect x="91.0" y="69" width="11.5" height="15.0" fill="rgb(224,70,52)" rx="2" ry="2" />
+<text  x="93.98" y="79.5" ></text>
+</g>
+<g >
+<title>__pthread_cond_wait (6 samples, 5.88%)</title><rect x="715.7" y="565" width="69.4" height="15.0" fill="rgb(244,141,52)" rx="2" ry="2" />
+<text  x="718.69" y="575.5" >__pthre..</text>
+</g>
+<g >
+<title>java/lang/invoke/BoundMethodHandle$SpeciesData.initForBootstrap (1 samples, 0.98%)</title><rect x="102.5" y="405" width="11.6" height="15.0" fill="rgb(213,31,28)" rx="2" ry="2" />
+<text  x="105.55" y="415.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl$Lazy.&lt;clinit&gt; (1 samples, 0.98%)</title><rect x="91.0" y="405" width="11.5" height="15.0" fill="rgb(243,70,14)" rx="2" ry="2" />
+<text  x="93.98" y="415.5" ></text>
+</g>
+<g >
+<title>C2Compiler::compile_method(ciEnv*, ciMethod*, int) (1 samples, 0.98%)</title><rect x="1155.3" y="533" width="11.6" height="15.0" fill="rgb(214,222,46)" rx="2" ry="2" />
+<text  x="1158.29" y="543.5" ></text>
+</g>
+<g >
+<title>pthread_cond_timedwait@@GLIBC_2.3.2 (26 samples, 25.49%)</title><rect x="854.5" y="629" width="300.8" height="15.0" fill="rgb(242,54,11)" rx="2" ry="2" />
+<text  x="857.51" y="639.5" >pthread_cond_timedwait@@GLIBC_2.3.2</text>
+</g>
+<g >
+<title>java/net/PlainSocketImpl.socketAccept (1 samples, 0.98%)</title><rect x="704.1" y="533" width="11.6" height="15.0" fill="rgb(250,171,43)" rx="2" ry="2" />
+<text  x="707.12" y="543.5" ></text>
+</g>
+<g >
+<title>Compile::Compile(ciEnv*, C2Compiler*, ciMethod*, int, bool, bool, bool) (1 samples, 0.98%)</title><rect x="1155.3" y="517" width="11.6" height="15.0" fill="rgb(249,188,53)" rx="2" ry="2" />
+<text  x="1158.29" y="527.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="421" width="11.5" height="15.0" fill="rgb(231,82,16)" rx="2" ry="2" />
+<text  x="1169.86" y="431.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="149" width="11.5" height="15.0" fill="rgb(223,100,38)" rx="2" ry="2" />
+<text  x="1169.86" y="159.5" ></text>
+</g>
+<g >
+<title>ZIP_ReadEntry (1 samples, 0.98%)</title><rect x="692.5" y="389" width="11.6" height="15.0" fill="rgb(213,131,26)" rx="2" ry="2" />
+<text  x="695.55" y="399.5" ></text>
+</g>
+<g >
+<title>ZIP_Read (1 samples, 0.98%)</title><rect x="692.5" y="373" width="11.6" height="15.0" fill="rgb(238,57,15)" rx="2" ry="2" />
+<text  x="695.55" y="383.5" ></text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="309" width="11.5" height="15.0" fill="rgb(231,138,13)" rx="2" ry="2" />
+<text  x="1169.86" y="319.5" ></text>
+</g>
+<g >
+<title>Java_java_net_PlainSocketImpl_socketAccept (1 samples, 0.98%)</title><rect x="704.1" y="517" width="11.6" height="15.0" fill="rgb(238,157,31)" rx="2" ry="2" />
+<text  x="707.12" y="527.5" ></text>
+</g>
+<g >
+<title>ClassFileParser::parseClassFile(Symbol*, ClassLoaderData*, Handle, KlassHandle, GrowableArray&lt;Handle&gt;*, TempNewSymbol&amp;, bool, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="421" width="11.6" height="15.0" fill="rgb(233,142,9)" rx="2" ry="2" />
+<text  x="82.41" y="431.5" ></text>
+</g>
+<g >
+<title>start_thread (3 samples, 2.94%)</title><rect x="1155.3" y="629" width="34.7" height="15.0" fill="rgb(214,201,45)" rx="2" ry="2" />
+<text  x="1158.29" y="639.5" >st..</text>
+</g>
+<g >
+<title>BlockBegin::iterate_preorder(boolArray&amp;, BlockClosure*) (1 samples, 0.98%)</title><rect x="1166.9" y="181" width="11.5" height="15.0" fill="rgb(241,58,34)" rx="2" ry="2" />
+<text  x="1169.86" y="191.5" ></text>
+</g>
+<g >
+<title>ClassPathZipEntry::open_entry(char const*, int*, bool, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="101" width="11.6" height="15.0" fill="rgb(216,210,12)" rx="2" ry="2" />
+<text  x="105.55" y="111.5" ></text>
+</g>
+<g >
+<title>__GI___clone (1 samples, 0.98%)</title><rect x="125.7" y="629" width="11.6" height="15.0" fill="rgb(251,142,48)" rx="2" ry="2" />
+<text  x="128.69" y="639.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DelegatingMethodHandle.makeReinvokerForm (1 samples, 0.98%)</title><rect x="91.0" y="293" width="11.5" height="15.0" fill="rgb(240,80,36)" rx="2" ry="2" />
+<text  x="93.98" y="303.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl.makeVarargsCollector (1 samples, 0.98%)</title><rect x="91.0" y="501" width="11.5" height="15.0" fill="rgb(238,126,38)" rx="2" ry="2" />
+<text  x="93.98" y="511.5" ></text>
+</g>
+<g >
+<title>__pthread_clockjoin_ex (6 samples, 5.88%)</title><rect x="10.0" y="613" width="69.4" height="15.0" fill="rgb(225,201,1)" rx="2" ry="2" />
+<text  x="13.00" y="623.5" >__pthre..</text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.preparedLambdaForm (1 samples, 0.98%)</title><rect x="91.0" y="165" width="11.5" height="15.0" fill="rgb(245,228,52)" rx="2" ry="2" />
+<text  x="93.98" y="175.5" ></text>
+</g>
+<g >
+<title>Main.main (3 samples, 2.94%)</title><rect x="91.0" y="629" width="34.7" height="15.0" fill="rgb(254,80,35)" rx="2" ry="2" />
+<text  x="93.98" y="639.5" >Ma..</text>
+</g>
+<g >
+<title>java/lang/Object.wait (6 samples, 5.88%)</title><rect x="715.7" y="581" width="69.4" height="15.0" fill="rgb(252,175,21)" rx="2" ry="2" />
+<text  x="718.69" y="591.5" >java/la..</text>
+</g>
+<g >
+<title>SystemDictionary::resolve_instance_class_or_null(Symbol*, Handle, Handle, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="469" width="11.6" height="15.0" fill="rgb(206,219,14)" rx="2" ry="2" />
+<text  x="82.41" y="479.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.preparedLambdaForm (1 samples, 0.98%)</title><rect x="102.5" y="517" width="11.6" height="15.0" fill="rgb(219,107,38)" rx="2" ry="2" />
+<text  x="105.55" y="527.5" ></text>
+</g>
+<g >
+<title>InterpreterRuntime::_new(JavaThread*, ConstantPool*, int) (1 samples, 0.98%)</title><rect x="692.5" y="533" width="11.6" height="15.0" fill="rgb(220,80,45)" rx="2" ry="2" />
+<text  x="695.55" y="543.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::load_instance_class(Symbol*, Handle, Thread*) (1 samples, 0.98%)</title><rect x="102.5" y="165" width="11.6" height="15.0" fill="rgb(210,78,2)" rx="2" ry="2" />
+<text  x="105.55" y="175.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/MethodHandleImpl$IntrinsicMethodHandle.&lt;init&gt; (1 samples, 0.98%)</title><rect x="91.0" y="341" width="11.5" height="15.0" fill="rgb(250,192,44)" rx="2" ry="2" />
+<text  x="93.98" y="351.5" ></text>
+</g>
+<g >
+<title>SystemDictionary::resolve_or_fail(Symbol*, Handle, Handle, bool, Thread*) (1 samples, 0.98%)</title><rect x="79.4" y="485" width="11.6" height="15.0" fill="rgb(223,85,48)" rx="2" ry="2" />
+<text  x="82.41" y="495.5" ></text>
+</g>
+<g >
+<title>java/lang/invoke/DirectMethodHandle.make (1 samples, 0.98%)</title><rect x="102.5" y="309" width="11.6" height="15.0" fill="rgb(226,11,12)" rx="2" ry="2" />
+<text  x="105.55" y="319.5" ></text>
+</g>
+</g>
+</svg>
