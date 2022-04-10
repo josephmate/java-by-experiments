@@ -133,6 +133,7 @@ kern.maxfilesperproc: 1000000
 But that didn't help, I still get the error. I think I might have mis-used the
 utlimit command because with -n I get:
 ```
+TODO
 ```
 
 
@@ -220,7 +221,19 @@ https://docs.oracle.com/en/java/javase/16/docs/specs/man/java.html
 java -XX:-MaxFDLimit -cp out/production/max_connections Main 6000
 ```
 
-Looks like I am running out of client ports.
+Looks like I am running out of client ports:
+```
+Exception in thread "main" java.net.BindException: Can't assign requested address
+        at java.base/sun.nio.ch.Net.bind0(Native Method)
+        at java.base/sun.nio.ch.Net.bind(Net.java:555)
+        at java.base/sun.nio.ch.Net.bind(Net.java:544)
+        at java.base/sun.nio.ch.NioSocketImpl.bind(NioSocketImpl.java:643)
+        at java.base/java.net.DelegatingSocketImpl.bind(DelegatingSocketImpl.java:94)
+        at java.base/java.net.Socket.bind(Socket.java:682)
+        at java.base/java.net.Socket.<init>(Socket.java:506)
+        at java.base/java.net.Socket.<init>(Socket.java:403)
+        at Main.main(Main.java:137)
+```
 
 https://phoenixframework.org/blog/the-road-to-2-million-websocket-connections
 encountered a similar issue.
