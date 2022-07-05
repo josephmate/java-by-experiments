@@ -1,5 +1,5 @@
 
-TODO:
+== TODO ==
 
 1. copy word count sample and get it running
 2. try to convert it ot character count
@@ -11,3 +11,12 @@ TODO:
 6. workaround using sort on genre+id
 7. how fast is it?
 8. do some more complicated calculation
+
+== Journey ==
+
+1. Not sure where to get the text file's line from
+    1. Solution: printed the schema and found a value column
+1. SparkSession not found by Intellij
+    1. Root Cause: SparkSession is not in core, but in spark sql? Added it as provided since spark's classloader will provide it
+1. TODO: not sure how string is translated to Java.
+    1. Solution: print the classname after calling .getAs("value")
