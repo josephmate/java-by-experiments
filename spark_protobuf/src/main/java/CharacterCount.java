@@ -1,18 +1,12 @@
-import org.apache.spark.api.java.function.FlatMapFunction;
-import org.apache.spark.api.java.function.MapFunction;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Encoders;
-import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
 import java.util.Arrays;
-import java.util.List;
 
-public class WordCountJavaRdd {
+public class CharacterCount {
     public static void main(String[] args) {
         SparkSession sparkSession = SparkSession
                 .builder()
-                .appName("WordCountJavaRdd")
+                .appName("CharacterCount")
                 .getOrCreate();
 
 
@@ -24,10 +18,7 @@ public class WordCountJavaRdd {
         System.out.println(
             sparkSession.read().text("README.md")
                 .javaRDD()
-                .flatMap(row -> Arrays.stream(row.getAs("value")
-                        .toString()
-                        .split(" "))
-                        .iterator()
+                .flatMap(row -> Arrays.stream(row.toString().split("")).iterator()
                 )
             .groupBy(row -> row)
             .countByKey()

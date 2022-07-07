@@ -12,8 +12,7 @@ public class WordCount {
     public static void main(String[] args) {
         SparkSession sparkSession = SparkSession
                 .builder()
-                .appName("Spark SQL basic example")
-                .config("spark.some.config.option", "some-value")
+                .appName("WordCount")
                 .getOrCreate();
 
         Dataset<Row> dataSet = sparkSession.read().text("README.md");

@@ -1,7 +1,7 @@
 
 == TODO ==
 
-1. copy word count sample and get it running
+1. DONE: copy word count sample and get it running
 2. try to convert it ot character count
 3. create a fake, denormalized protobuf model for a library
    with most of the entries in the same genre
@@ -22,4 +22,6 @@
     1. Solution: print the classname after calling .getAs("value")
 1. All this casting and Encoders junk is repetitive, what do I do about that?
     1. Solution java rdd
+1. TODO: All countByKey has returned 1, even for words/characters that have multiple occurences!
+    1. TODO: debug
 
