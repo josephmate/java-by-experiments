@@ -18,5 +18,8 @@
     1. Solution: printed the schema and found a value column
 1. SparkSession not found by Intellij
     1. Root Cause: SparkSession is not in core, but in spark sql? Added it as provided since spark's classloader will provide it
-1. TODO: not sure how string is translated to Java.
+1. not sure how string is translated to Java.
     1. Solution: print the classname after calling .getAs("value")
+1. All this casting and Encoders junk is repetitive, what do I do about that?
+    1. Solution java rdd
+
