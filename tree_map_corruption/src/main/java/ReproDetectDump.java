@@ -30,43 +30,61 @@ public class ReproDetectDump {
         if (args.length >= 2) {
             numUpdates =  Integer.parseInt(args[1]);
         } else {
-            numUpdates = 1000;
+            numUpdates = 5;
         }
 
-        final TreeMap<Integer,Integer> treeMap = new TreeMap<>();
+        final int maxVal;
+        if (args.length >= 3) {
+            maxVal =  Integer.parseInt(args[2]);
+        } else {
+            maxVal = 30;
+        }
 
-        DetectorThread detectorThread = new DetectorThread(treeMap);
+        final int numExperiments;
+        if (args.length >= 4) {
+            numExperiments =  Integer.parseInt(args[3]);
+        } else {
+            numExperiments = 1000;
+        }
 
-        List<Thread> threads = new ArrayList<>();
-        for (int i = 0; i < numThreads; i++) {
-            threads.add(new Thread(() -> {
-                Random random = new Random();
-                for(int j = 0; j < numUpdates; j++) {
-                    try {
-                        treeMap.put(random.nextInt(1000), random.nextInt(1000));
-                    } catch (NullPointerException e) {
-                        // let it keep going so we can reproduce the issue.
+        for (int experiment = 1; experiment <= numExperiments; experiment++) {
+            final TreeMap<Integer, Integer> treeMap = new TreeMap<>();
+
+
+            List<Thread> threads = new ArrayList<>();
+            for (int i = 0; i < numThreads; i++) {
+                threads.add(new Thread(() -> {
+                    Random random = new Random();
+                    for (int j = 0; j < numUpdates; j++) {
+                        try {
+                            treeMap.put(random.nextInt(maxVal), random.nextInt(1000));
+                        } catch (NullPointerException e) {
+                            // let it keep going so we can reproduce the issue.
+                        }
                     }
-                }
-            }));
-        }
+                }));
+            }
 
-        for (Thread thread : threads) {
-            thread.start();
-        }
-        detectorThread.start();
+            DetectorThread detectorThread = new DetectorThread(treeMap, threads);
 
-        for (Thread thread : threads) {
-            thread.join();
-        }
+            for (Thread thread : threads) {
+                thread.start();
+            }
+            detectorThread.start();
 
-        detectorThread.interrupt();
+            for (Thread thread : threads) {
+                thread.join();
+            }
+
+            detectorThread.interrupt();
+        }
     }
 
 }
 
 class DetectorThread extends Thread {
     private final TreeMap<Integer,Integer> treeMap;
+    private final List<Thread> threadsToStop;
     private static final Field treeMapRootField;
     private static final Field treeMapEntryLeft;
     private static final Field treeMapEntryRight;
@@ -94,42 +112,52 @@ class DetectorThread extends Thread {
         }
     }
 
-    public DetectorThread(TreeMap<Integer,Integer> treeMap) {
+    public DetectorThread(
+        TreeMap<Integer,Integer> treeMap,
+        List<Thread> threadsToStop
+    ) {
         this.treeMap = treeMap;
+        this.threadsToStop = threadsToStop;
     }
 
     private boolean isLoopDetected() throws Exception {
         return isLoopDetected(treeMapRootField.get(treeMap), new IdentityHashMap<>());
     }
 
+    /**
+     * DFS to detect loop
+     */
     private boolean isLoopDetected(Object treeMapEntry, IdentityHashMap<Object, Object> visited) throws Exception {
         if (treeMapEntry == null) {
             return false;
         }
 
+        if (visited.containsKey(treeMapEntry)) {
+            return true;
+        }
+
+        visited.put(treeMapEntry, treeMapEntry);
+
+
         Object left = treeMapEntryLeft.get(treeMapEntry);
         Object right = treeMapEntryRight.get(treeMapEntry);
-        if (visited.containsKey(left)) {
-            return true;
-        }
-        if (visited.containsKey(right)) {
-            return true;
-        }
-        visited.put(left, left);
-        visited.put(right, right);
-
-        return isLoopDetected(left, visited) || isLoopDetected(right, visited);
+        return isLoopDetected(left, visited)
+            || isLoopDetected(right, visited);
     }
 
     @Override
     public void run() {
         try {
-            while (isLoopDetected()) {
+            while (!isLoopDetected()) {
                 if (this.isInterrupted()) {
                     return;
                 }
             }
             System.out.println("Loop detected");
+            new TreeMapExplorer(treeMap).print();
+            for (Thread thread : threadsToStop) {
+                thread.stop();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
