@@ -8,29 +8,31 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 
+/**
+ * In order to run on jdk11+ you need to add these JVM args:
+ * <pre>
+ * --add-opens java.base/java.util=ALL-UNNAMED
+ * </pre>
+ *
+ * Need to run many experiments in order to reproduce the issue with so few entries.
+ */
 public class ReproDetectDump {
 
-    /**
-     * In order to run you need to add these JVM args:
-     * <pre>
-     * --add-opens java.base/java.util=ALL-UNNAMED
-     * </pre>
-     * @param args
-     */
+
     public static void main(String[] args) throws Exception {
 
         final int numThreads;
         if (args.length >= 1) {
             numThreads = Integer.parseInt(args[0]);
         } else {
-            numThreads = 5;
+            numThreads = 3;
         }
 
         final int numUpdates;
         if (args.length >= 2) {
             numUpdates =  Integer.parseInt(args[1]);
         } else {
-            numUpdates = 5;
+            numUpdates = 4;
         }
 
         final int maxVal;

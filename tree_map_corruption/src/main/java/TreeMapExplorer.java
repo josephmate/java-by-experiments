@@ -9,6 +9,7 @@ class TreeMapExplorer {
     private static final Field treeMapEntryLeft;
     private static final Field treeMapEntryRight;
     private static final Field treeMapEntryKey;
+    private static final Field treeMapEntryColor;
 
     static {
         try {
@@ -26,6 +27,8 @@ class TreeMapExplorer {
             treeMapEntryRight.setAccessible(true);
             treeMapEntryKey = treeMapEntryClass.getDeclaredField("key");
             treeMapEntryKey.setAccessible(true);
+            treeMapEntryColor = treeMapEntryClass.getDeclaredField("color");
+            treeMapEntryColor.setAccessible(true);
 
         } catch (NoSuchFieldException e) {
             throw new RuntimeException(e);
@@ -47,10 +50,14 @@ class TreeMapExplorer {
             // in order traversal
             visited.put(treeMapEntry, treeMapEntry);
             print(treeMapEntryLeft.get(treeMapEntry), tabs + "  ", visited);
-            System.out.println(tabs + treeMapEntryKey.get(treeMapEntry));
+            System.out.println(tabs + treeMapEntryKey.get(treeMapEntry) + ":"
+                + (treeMapEntryColor.getBoolean(treeMapEntry) ? "BLACK" : "RED"));
             print(treeMapEntryRight.get(treeMapEntry), tabs + "  ", visited);
         } else if (treeMapEntry != null && visited.containsKey(treeMapEntry)) {
-            System.out.println(tabs + treeMapEntryKey.get(treeMapEntry) + " CYCLE");
+            System.out.println(tabs + treeMapEntryKey.get(treeMapEntry)  + ":"
+                + (treeMapEntryColor.getBoolean(treeMapEntry) ? "BLACK" : "RED")
+                + " CYCLE"
+            );
         }
     }
 }
