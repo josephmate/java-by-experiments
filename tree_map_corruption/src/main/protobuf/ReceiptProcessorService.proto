@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+message AddReceiptRequest {
+    int32 timestamp = 1;
+    int32 totalPrice = 2;
+}
+
+message AddReceiptResponse {
+}
+
+service ReceiptProcessorService {
+    rpc AddReceipt(AddReceiptRequest) returns (AddReceiptResponse);
+}
