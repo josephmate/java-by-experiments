@@ -14,10 +14,10 @@ import io.grpc.stub.StreamObserver;
  * Demonstrates that the simplified 2 thread reproduce code isn't that unrealistic. Exceptionsm
  * get accidentally swallowed all the time especially if there are RuntimeExceptions like NPEs.
  */
-public class GrpcRepro {
+public class GrpcThrowNPE {
     public static void main(String[] args) throws Exception {
         final Server server = ServerBuilder.forPort(0)
-            .addService(new ReceiptProcessorServiceImpl())
+            .addService(new ReceiptProcessorThrowNPEImpl())
             .build()
             .start();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -33,7 +33,7 @@ public class GrpcRepro {
         final ReceiptProcessorServiceGrpc.ReceiptProcessorServiceFutureStub futureStub = ReceiptProcessorServiceGrpc.newFutureStub(channel);
 
         Random random = new Random();
-        for (int i = 0; i < 100_000; i++) {
+        for (int i = 0; i < 1_000; i++) {
             ReceiptProcessorServiceOuterClass.AddReceiptRequest request = ReceiptProcessorServiceOuterClass.AddReceiptRequest.newBuilder()
                 .setTimestamp(random.nextInt(10_000))
                 .setTotalPrice(random.nextInt(10_000))
@@ -46,19 +46,12 @@ public class GrpcRepro {
     }
 }
 
-class ReceiptProcessorServiceImpl extends ReceiptProcessorServiceGrpc.ReceiptProcessorServiceImplBase {
-    private final TreeMap<Integer, Integer> receipts = new TreeMap<>();
-
+class ReceiptProcessorThrowNPEImpl extends ReceiptProcessorServiceGrpc.ReceiptProcessorServiceImplBase {
     @Override
     public void addReceipt(
         ReceiptProcessorServiceOuterClass.AddReceiptRequest req,
         StreamObserver<ReceiptProcessorServiceOuterClass.AddReceiptResponse> responseObserver
     ) {
-        int timestamp = req.getTimestamp();
-        int totalPrice = req.getTotalPrice();
-        receipts.put(timestamp, totalPrice);
-        ReceiptProcessorServiceOuterClass.AddReceiptResponse response = ReceiptProcessorServiceOuterClass.AddReceiptResponse.newBuilder().build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        throw new NullPointerException();
     }
 }
