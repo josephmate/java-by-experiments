@@ -1,3 +1,4 @@
+# Results
 
 Most of the time, the program succeds and runs like this with all threads
 completing.
@@ -94,4 +95,10 @@ MSGRECV
 13
 ```
 
+# Running
 
+Make sure you have `g++` installed
+```
+make
+./SimpleRepro
+```

@@ -6,7 +6,7 @@ include Containers
 num_threads = (ARGV[0] || 5).to_i
 num_updates = (ARGV[1] || 1000).to_i
 
-tree_map = RedBlackTreeMap.new
+tree_map = RBTreeMap.new
 
 threads = []
 
@@ -24,3 +24,5 @@ num_threads.times do
 end
 
 threads.each(&:join)
+
+puts "Done"
