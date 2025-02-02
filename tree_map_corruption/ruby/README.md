@@ -1,27 +1,47 @@
 
 # Results
 
-Was able to run the program 1,000 times without reproducing the problem.
-No explanation for why it does not reproduce the issue.
-I was expecting it to also reproduce in Ruby.
+Even after trying all the following, I still wasn't able to reproduce the issue:
+1. adding barrier
+2. flushing output to stdout
+3. increasing the amount of work per thread to 1,000,000
+4. increasing the number of threads to 10
+
+I believe it might not be able to reproduce the problem due to the Global Interpreter Lock (GIL),
+and how it limits when threads can switch preventing such an interleaving of threads that cause an infinite loop.
+
 ```
-for i in `seq 1 1000`; do echo $i; ruby simple_repo.rb; done
-...
-993
-Done
-994
-Done
-995
-Done
-996
-Done
-997
-Done
-998
-Done
-999
-Done
-1000
+ruby % ruby simple_repo.rb
+1: waiting for other threads to start
+2: waiting for other threads to start
+3: waiting for other threads to start
+4: waiting for other threads to start
+5: waiting for other threads to start
+6: waiting for other threads to start
+7: waiting for other threads to start
+8: waiting for other threads to start
+9: waiting for other threads to start
+10: waiting for other threads to start
+10: started
+1: started
+2: started
+3: started
+4: started
+5: started
+6: started
+7: started
+8: started
+9: started
+1: finished
+10: finished
+2: finished
+3: finished
+4: finished
+5: finished
+7: finished
+6: finished
+8: finished
+9: finished
 Done
 
 ```
@@ -42,6 +62,7 @@ ruby 3.4.1 (2024-12-25 revision 48d4efcb85) +PRISM [x86_64-darwin20]
 
 
 sudo gem install kanwei-algorithms
+sudo gem install concurrent-ruby
 ```
 
 ## Using Mac's ruby doesn't work:
