@@ -1,0 +1,8 @@
+[package]
+name = "rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rbtree = "0.2.0"
+rand = "0.8"
