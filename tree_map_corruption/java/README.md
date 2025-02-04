@@ -96,16 +96,11 @@ mvn install
 java \
   -cp $(mvn dependency:build-classpath -Dmdep.outputFile=/dev/stdout -q):target/classes \
   ProtectedSimpleRepro 5 1000
-
-```
-
-TODO: fix this infinite loop
-```
-"Thread-4" #17 prio=5 os_prio=31 cpu=39786.83ms elapsed=40.04s tid=0x00007fc955810c00 nid=0x9303 runnable  [0x0000700004a5d000]
-   java.lang.Thread.State: RUNNABLE
-        at ProtectedTreeMap.put(ProtectedTreeMap.java:825)
-        at ProtectedTreeMap.put(ProtectedTreeMap.java:533)
+Exception in thread "Thread-3" java.util.ConcurrentModificationException: TreeMap corrupted. Loop detected
+        at ProtectedTreeMap.put(ProtectedTreeMap.java:840)
+        at ProtectedTreeMap.put(ProtectedTreeMap.java:539)
         at ProtectedSimpleRepro.lambda$main$0(ProtectedSimpleRepro.java:29)
-        at ProtectedSimpleRepro$$Lambda$1/0x0000000800c00da8.run(Unknown Source)
-        at java.lang.Thread.run(java.base@17.0.3/Thread.java:833)
+        at java.base/java.lang.Thread.run(Thread.java:833)
+
+# Much better than having an infinite loop!
 ```

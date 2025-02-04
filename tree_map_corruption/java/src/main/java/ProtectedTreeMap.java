@@ -345,7 +345,9 @@ public class ProtectedTreeMap<K,V>
         @SuppressWarnings("unchecked")
             Comparable<? super K> k = (Comparable<? super K>) key;
         Entry<K,V> p = root;
+        IdentityHashMap<Entry<?,?>, Boolean> visited = new IdentityHashMap<>();
         while (p != null) {
+						visited.put(p, true);
             int cmp = k.compareTo(p.key);
             if (cmp < 0)
                 p = p.left;
@@ -353,6 +355,10 @@ public class ProtectedTreeMap<K,V>
                 p = p.right;
             else
                 return p;
+
+            if (visited.containsKey(p)) {
+                throw new ConcurrentModificationException("TreeMap corrupted. Loop detected");
+            }
         }
         return null;
     }
@@ -779,6 +785,7 @@ public class ProtectedTreeMap<K,V>
     }
 
     private V put(K key, V value, boolean replaceOld) {
+        IdentityHashMap<Entry<?,?>, Boolean> visited = new IdentityHashMap<>();
         Entry<K,V> t = root;
         if (t == null) {
             addEntryToEmptyMap(key, value);
@@ -790,6 +797,7 @@ public class ProtectedTreeMap<K,V>
         Comparator<? super K> cpr = comparator;
         if (cpr != null) {
             do {
+								visited.put(t, true);
                 parent = t;
                 cmp = cpr.compare(key, t.key);
                 if (cmp < 0)
@@ -803,12 +811,17 @@ public class ProtectedTreeMap<K,V>
                     }
                     return oldValue;
                 }
+
+                if (visited.containsKey(t)) {
+                    throw new ConcurrentModificationException("TreeMap corrupted. Loop detected");
+								}
             } while (t != null);
         } else {
             Objects.requireNonNull(key);
             @SuppressWarnings("unchecked")
             Comparable<? super K> k = (Comparable<? super K>) key;
             do {
+								visited.put(t, true);
                 parent = t;
                 cmp = k.compareTo(t.key);
                 if (cmp < 0)
@@ -822,6 +835,10 @@ public class ProtectedTreeMap<K,V>
                     }
                     return oldValue;
                 }
+
+                if (visited.containsKey(t)) {
+                    throw new ConcurrentModificationException("TreeMap corrupted. Loop detected");
+								}
             } while (t != null);
         }
         addEntry(key, value, parent, cmp < 0);
